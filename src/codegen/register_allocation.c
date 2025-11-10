@@ -389,6 +389,150 @@ void print_adjacency_matrix(AdjacencyMatrix m) {
 
 // ===== END ADJANCENCY MATRIX =====
 
+void replace_use(IRInstruction *usee, Use* use, IRInstruction *replacement) {
+    if (use->user == replacement) {
+        return;
+    }
+    ASSERT(IR_COUNT == 18);
+    switch (use->user->type) {
+    case IR_PHI:
+        for (IRPhiArgument *phi = use->user->value.phi_argument; phi; phi = phi->next) {
+            if (phi->value == usee) {
+                phi->value = replacement;
+            }
+        }
+        break;
+    case IR_LOAD:
+    case IR_LOCAL_ADDRESS:
+    case IR_LOCAL_LOAD:
+    case IR_COPY:
+        if (use->user->value.reference == usee) {
+            use->user->value.reference = replacement;
+        }
+        break;
+    case IR_GLOBAL_STORE:
+        if (use->user->value.global_assignment.new_value == usee) {
+            use->user->value.global_assignment.new_value = replacement;
+        }
+        break;
+        //case IR_STORE:
+    case IR_LOCAL_STORE:
+    case IR_COMPARISON:
+    case IR_ADD:
+    case IR_SUBTRACT:
+        if (use->user->value.pair.car == usee) {
+            use->user->value.pair.car = replacement;
+        }
+        if (use->user->value.pair.cdr == usee) {
+            use->user->value.pair.cdr = replacement;
+        }
+        break;
+    case IR_CALL:
+        if (use->user->value.call.type == IR_CALLTYPE_INDIRECT) {
+            if (use->user->value.call.value.callee == usee) {
+                use->user->value.call.value.callee = replacement;
+            }
+        }
+        break;
+    case IR_BRANCH_CONDITIONAL:
+        if (use->user->value.conditional_branch.condition == usee) {
+            use->user->value.conditional_branch.condition = replacement;
+        }
+        break;
+    case IR_PARAMETER_REFERENCE:
+    case IR_GLOBAL_ADDRESS:
+    case IR_GLOBAL_LOAD:
+    case IR_IMMEDIATE:
+    case IR_BRANCH:
+    case IR_RETURN:
+        break;
+    default:
+        TODO("Handle IR instruction type to be able to replace uses.");
+        break;
+    }
+}
+
+void replace_uses(IRInstruction *instruction, IRInstruction *replacement) {
+    for (Use *use = instruction->uses; use; use = use->next) {
+        replace_use(instruction, use, replacement);
+    }
+}
+
+void coalesce(RegisterAllocationInfo *info, IRInstructionList **instructions, AdjacencyGraph *G) {
+  IRInstructionList *instructions_to_remove = NULL;
+
+  // Attempt to remove copy instructions.
+  for (IRInstructionList *it = *instructions; it; it = it->next) {
+    IRInstruction *instruction = it->instruction;
+    if (instruction->type == IR_COPY) {
+        if (instruction == instruction->value.reference
+            || instruction->result
+            || !adjm(G->matrix, instruction->index, instruction->value.reference->index)
+            ) {
+        if (instruction->result == instruction->value.reference->result) {
+            // Replace all uses of INSTRUCTION with the thing being copied.
+            replace_uses(instruction, instruction->value.reference);
+            IRInstructionList *head = calloc(1, sizeof(IRInstructionList));
+            head->instruction = instruction;
+            head->next = instructions_to_remove;
+            instructions_to_remove = head;
+            continue;
+        }
+        } else {
+            continue;
+        }
+
+        if (instruction->result) {
+            // Don't override anything that is already colored.
+            if (instruction->value.reference->result) {
+                continue;
+            }
+
+            instruction->value.reference->result = instruction->result;
+            } else {
+                // Replace all uses of INSTRUCTION with the thing being copied.
+                replace_uses(instruction, instruction->value.reference);
+                IRInstructionList *head = calloc(1, sizeof(IRInstructionList));
+                head->instruction = instruction;
+                head->next = instructions_to_remove;
+                instructions_to_remove = head;
+            }
+
+            // Also replace all adjacency matrix values regarding COPY instruction with the copied instruction.
+            for (IRInstructionList *adj_it = *instructions; adj_it; adj_it = adj_it->next) {
+                if (adj_it->instruction == instruction) {
+                    continue;
+                }
+                *adjm_entry(G->matrix, instruction->index, adj_it->instruction->index) =
+                *adjm_entry(G->matrix, instruction->value.reference->index, adj_it->instruction->index);
+            }
+        }
+  }
+
+    // Remove instructions
+    for (; instructions_to_remove; instructions_to_remove = instructions_to_remove->next) {
+        // Delete instruction from block.
+        IRInstruction* instruction = instructions_to_remove->instruction;
+        if (instruction->previous) {
+            instruction->previous->next = instruction->next;
+        }
+        if (instruction->next) {
+            instruction->next->previous = instruction->previous;
+        }
+        if (instruction == instruction->block->instructions) {
+            instruction->block->instructions = instruction->next;
+        }
+        if (instruction) {
+            instruction->block->last_instruction = instruction->previous;
+        }
+        // TODO: Free uses.
+        instruction->block = NULL;
+        instruction->next = NULL;
+        instruction->previous = NULL;
+        instruction->uses = NULL;
+    }
+}
+
 void ra(RegisterAllocationInfo* info) {
     if (!info) { return; }
 
@@ -405,7 +549,14 @@ void ra(RegisterAllocationInfo* info) {
 
     print_adjacency_matrix(G.matrix);
 
+    coalesce(info, &instructions, &G);
+
     ir_set_ids(info->context);
+
+    instructions = collect_instructions(info);
+    build_adjacency_matrix(info, instructions, &G);
+
+    print_adjacency_matrix(G.matrix);
 
     print_instruction_list(instructions);
     // ir_femit(stdout, info->context);
