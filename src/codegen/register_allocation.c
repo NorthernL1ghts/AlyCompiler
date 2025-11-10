@@ -250,9 +250,12 @@ char adjm(AdjacencyMatrix m, size_t x, size_t y) {
     return *adjm_entry(m, x, y);
 }
 
+typedef struct AdjacencyListNode AdjacencyListNode;
+
 typedef struct AdjacencyGraph {
     size_t order;
     AdjacencyMatrix matrix;
+    AdjacencyListNode* list;
 } AdjacencyGraph;
 
 enum ControlFlowResult {
@@ -349,26 +352,25 @@ char instructions_interfere(IRInstruction* A, IRInstruction* B) {
     return 0;
 }
 
-
 void build_adjacency_matrix(RegisterAllocationInfo *info, IRInstructionList *instructions, AdjacencyGraph *G) {
-  ASSERT(instructions, "Can not build adjacency matrix of NULL instruction list.");
-   IRInstructionList *last = instructions;
-   while (last->next) {
-     last = last->next;
-   }
-  size_t size = last->instruction->index + 1;
-  G->matrix = adjm_create(size);
-  for(IRInstructionList *A = instructions; A; A = A->next) {
-    for(IRInstructionList *B = instructions; B; B = B->next) {
-      if (A == B) { continue; }
-      if (adjm(G->matrix, A->instruction->index, B->instruction->index)) {
-        continue;
-      }
-      if (instructions_interfere(A->instruction, B->instruction)) {
-        adjm_set(G->matrix, A->instruction->index, B->instruction->index);
-      }
+    ASSERT(instructions, "Can not build adjacency matrix of NULL instruction list.");
+    IRInstructionList *last = instructions;
+    while (last->next) {
+    last = last->next;
     }
-  }
+    size_t size = last->instruction->index + 1;
+    G->matrix = adjm_create(size);
+    for(IRInstructionList *A = instructions; A; A = A->next) {
+    for(IRInstructionList *B = instructions; B; B = B->next) {
+    if (A == B) { continue; }
+        if (adjm(G->matrix, A->instruction->index, B->instruction->index)) {
+            continue;
+        }
+        if (instructions_interfere(A->instruction, B->instruction)) {
+            adjm_set(G->matrix, A->instruction->index, B->instruction->index);
+        }
+        }
+    }
 }
 
 void print_adjacency_matrix(AdjacencyMatrix m) {
@@ -389,7 +391,103 @@ void print_adjacency_matrix(AdjacencyMatrix m) {
 
 // ===== END ADJANCENCY MATRIX =====
 
-void replace_use(IRInstruction *usee, Use* use, IRInstruction *replacement) {
+// ===== BEG ADJANCENCY LISTS =====
+
+typedef struct AdjacencyList AdjacencyList;
+
+typedef struct AdjacencyListNode {
+    size_t color;
+
+    // Degree refers to how many adjacencies this vertex/node has.
+    size_t degree;
+
+    AdjacencyList* adjacencies;
+
+    IRInstruction* instruction;
+
+    // Unique integer index.
+    size_t index;
+
+    char allocated;
+
+    // Spill handling.
+    char spill_flag;
+    size_t spill_offset;
+    size_t spill_cost;
+} AdjacencyListNode;
+
+typedef struct AdjacencyList {
+    AdjacencyListNode* node;
+    struct AdjacencyList* next;
+} AdjacencyList;
+
+/// Be sure to assign given head to return value.
+AdjacencyList* adjl_create(AdjacencyList* head) {
+    AdjacencyListNode* node = calloc(1, sizeof(AdjacencyListNode));
+    AdjacencyList* list = calloc(1, sizeof(AdjacencyList));
+    list->next = head;
+    list->node = node;
+    return list;
+}
+
+void adjl_add_impl(AdjacencyListNode* node, AdjacencyListNode* adjacent) {
+    node->adjacencies = adjl_create(node->adjacencies);
+    node->adjacencies->node = adjacent;
+    node->degree++;
+}
+
+void adjl_add(AdjacencyListNode* A, AdjacencyListNode* B) {
+    adjl_add_impl(A, B);
+    adjl_add_impl(B, A);
+}
+
+void build_adjacency_lists(RegisterAllocationInfo* info, IRInstructionList* instructions, AdjacencyGraph* G) {
+    G->list = calloc(G->matrix.size + 1, sizeof(AdjacencyListNode));
+
+    for (IRInstructionList *it = instructions; it; it = it->next) {
+        G->list[it->instruction->index].index = it->instruction->index;
+        G->list[it->instruction->index].color = it->instruction->result;
+        G->list[it->instruction->index].instruction = it->instruction;
+    }
+
+    for (IRInstructionList *A = instructions; A; A = A->next) {
+        for (IRInstructionList *B = instructions; B; B = B->next) {
+            if (A->instruction == B->instruction) {
+                continue;
+            }
+            if (adjm(G->matrix, A->instruction->index, B->instruction->index)) {
+                adjl_add_impl(&G->list[A->instruction->index], &G->list[B->instruction->index]);
+            }
+        }
+    }
+}
+
+void print_adjacency_list(AdjacencyList *list) {
+    if (list) {
+        printf("%zu", list->node->index);
+        list = list->next;
+    }
+    for (; list; list = list->next) {
+        printf(", %zu", list->node->index);
+    }
+    printf("\n");
+}
+
+void print_adjacency_array(AdjacencyListNode *array, size_t size) {
+    AdjacencyListNode it = array[0];
+    for (size_t i = 0; i < size; ++i, it = array[i]) {
+        printf("%%%zu::%zu: ", it.instruction->id, it.instruction->index);
+        if (it.color) {
+            printf("(r%zu) ", it.color);
+        }
+        print_adjacency_list(it.adjacencies);
+    }
+    printf("\n");
+}
+
+// ===== END ADJANCENCY LISTS =====
+
+void replace_use(IRInstruction* usee, Use* use, IRInstruction* replacement) {
     if (use->user == replacement) {
         return;
     }
@@ -546,17 +644,18 @@ void ra(RegisterAllocationInfo* info) {
     AdjacencyGraph G;
     G.order = info->register_count;
     build_adjacency_matrix(info, instructions, &G);
-
     print_adjacency_matrix(G.matrix);
 
     coalesce(info, &instructions, &G);
 
-    ir_set_ids(info->context);
-
     instructions = collect_instructions(info);
     build_adjacency_matrix(info, instructions, &G);
-
     print_adjacency_matrix(G.matrix);
+
+    ir_set_ids(info->context);
+
+    build_adjacency_lists(info, instructions, &G);
+    print_adjacency_array(G.list, G.matrix.size);
 
     print_instruction_list(instructions);
     // ir_femit(stdout, info->context);
