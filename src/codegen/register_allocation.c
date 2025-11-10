@@ -2,6 +2,7 @@
 
 #include <codegen.h>
 #include <stdlib.h>
+#include <string.h>
 #include <codegen/intermediate_representation.h>
 
 RegisterAllocationInfo* ra_allocate_info
@@ -631,6 +632,100 @@ void coalesce(RegisterAllocationInfo *info, IRInstructionList **instructions, Ad
     }
 }
 
+typedef struct NumberStack {
+    size_t number;
+    struct NumberStack* next;
+} NumberStack;
+
+void print_number_stack(NumberStack* stack) {
+    if (stack) {
+        printf("%zu", stack->number);
+        stack = stack->next;
+    }
+    for (; stack; stack = stack->next) {
+        printf(", %zu", stack->number);
+    }
+    printf("\n");
+}
+
+NumberStack* build_coloring_stack(RegisterAllocationInfo* info, IRInstructionList* instructions, AdjacencyGraph* G) {
+    NumberStack* stack = NULL;
+
+    AdjacencyListNode* array = calloc(G->matrix.size, sizeof(AdjacencyListNode));
+    for (size_t i = 0; i < G->matrix.size; ++i) {
+        AdjacencyListNode* new_node = array + i;
+        AdjacencyListNode* node = G->list + i;
+        *new_node = *node;
+        for (AdjacencyList* adj_it = node->adjacencies; adj_it; adj_it = adj_it->next) {
+            adjl_add_impl(new_node, adj_it->node);
+        }
+    }
+
+    size_t k = info->register_count;
+    size_t count = G->matrix.size;
+    while (count) {
+        // degree < k rule:
+        //  A graph G is k-colorable if, for every node N in G, the degree
+        //  of N < k.
+        char done = 0;
+        do {
+            done = 1;
+            for (size_t i = 0; i < G->matrix.size; ++i) {
+                AdjacencyListNode* node = array + i;
+                if (node->color || node->allocated) {
+                    continue;
+                }
+                if (node->degree < k) {
+                    done = 0;
+
+                    // push onto color allocation stack.
+                    NumberStack* new_number = calloc(1, sizeof(NumberStack));
+                    new_number->number = i;
+                    new_number->next = stack;
+                    stack = new_number;
+
+                    node->allocated = 1;
+
+                    --count;
+                }
+            }
+        } while (!done && count);
+
+        if (count) {
+            // Determine node with minimal spill cost.
+            size_t min_cost = 0;
+            size_t node_to_spill = 0;
+
+            for (IRInstructionList* it = instructions; it; it = it->next) {
+                AdjacencyListNode* node = array + it->instruction->index;
+                if (node->color || node->allocated) {
+                    continue;
+                }
+                node->spill_cost = node->degree ? (node->spill_cost / node->degree) : -1;
+                if (node->degree && node->spill_cost <= min_cost) {
+                    min_cost = node->spill_cost;
+                    node_to_spill = it->instruction->index;
+                    // node->allocated = 1;
+                    if (!min_cost) {
+                        break;
+                    }
+                }
+            }
+
+            // push onto color allocation stack.
+            NumberStack* new_number = calloc(1, sizeof(NumberStack));
+            new_number->number = node_to_spill;
+            new_number->next = stack;
+            stack = new_number;
+
+            (array + node_to_spill)->allocated = 1;
+
+            --count;
+        }
+    }
+    return stack;
+}
+
 void ra(RegisterAllocationInfo* info) {
     if (!info) { return; }
 
@@ -656,6 +751,9 @@ void ra(RegisterAllocationInfo* info) {
 
     build_adjacency_lists(info, instructions, &G);
     print_adjacency_array(G.list, G.matrix.size);
+
+    NumberStack* stack = build_coloring_stack(info, instructions, &G);
+    print_number_stack(stack);
 
     print_instruction_list(instructions);
     // ir_femit(stdout, info->context);
