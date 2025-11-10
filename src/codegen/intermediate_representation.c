@@ -19,9 +19,12 @@ void ir_insert
 {
     // If block is closed, open a new block.
     if (context->block->branch) {
-        //
+        // TODO:
     }
     ASSERT(context->block->branch == NULL, "Can not insert into a closed IRBlock.");
+
+    new_instruction->block = context->block;
+
     // [ ] <-> [ ] <-> [NULL]
     //         [ ] <-> [new] <-> [NULL]
     if (!context->block->instructions) {

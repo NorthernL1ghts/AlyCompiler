@@ -563,7 +563,7 @@ Error codegen_expression
     size_in_bytes = tmpnode->children->value.integer;
 
     IRInstruction *local = ir_stack_allocate(cg_context, size_in_bytes);
-    Node *local_reference = node_allocate();
+    Node *local_reference = node_allocate();    
     local_reference->value.ir_instruction = local;
     environment_set(cg_context->locals, expression->children, local_reference);
     break;

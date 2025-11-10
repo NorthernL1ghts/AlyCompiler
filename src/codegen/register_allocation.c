@@ -47,6 +47,8 @@ void insert_instruction_before(IRInstruction* a, IRInstruction* b) {
 
     a->next = b;
 
+    a->block = b->block;
+
     // TODO: Handle beginning/end of block stuffs.
 }
 
@@ -65,6 +67,8 @@ void insert_instruction_after(IRInstruction* a, IRInstruction* b) {
     b->next = a;
 
     a->previous = b;
+
+    a->block = b->block;
 
     // TODO: Handle beginning/end of block stuffs.
 }
@@ -154,6 +158,7 @@ typedef struct IRInstructionList {
 } IRInstructionList;
 
 IRInstructionList* collect_instructions(RegisterAllocationInfo* info) {
+    size_t index = 0;
     IRInstructionList* list = NULL;
     IRInstructionList* list_it = NULL;
     for (IRFunction* function = info->context->all_functions; function; function = function->next) {
@@ -182,6 +187,7 @@ IRInstructionList* collect_instructions(RegisterAllocationInfo* info) {
                         list_it = calloc(1, sizeof(IRInstructionList));
                         list = list_it;
                     }
+                    instruction->index = index++;
                     list_it->instruction = instruction;
                     break;
                 default:
@@ -202,6 +208,187 @@ void print_instruction_list(IRInstructionList* list) {
 
 // ===== END INSTRUCTION LISTS =====
 
+typedef struct IRBlockList {
+    IRBlock* block;
+    struct IRBlockList* next;
+} IRBlockList;
+
+// ===== BEG ADJANCENCY MATRIX =====
+
+typedef struct AdjacencyMatrix {
+    size_t size;
+    char* data;
+} AdjacencyMatrix;
+
+AdjacencyMatrix adjm_create(size_t size) {
+    AdjacencyMatrix m;
+    m.size = size;
+    m.data = calloc(1, size * size + 1); // Adjacency matrix is 2D.
+    return m;
+}
+
+char* adjm_entry(AdjacencyMatrix m, size_t x, size_t y) {
+    if (x > m.size) { return &m.data[0]; }
+    if (y > m.size) { return &m.data[0]; }
+    if (y > x) {
+        size_t old_x = x;
+        x = y;
+        y = old_x;
+    }
+    return &m.data[y * m.size + x];
+}
+
+void adjm_set(AdjacencyMatrix m, size_t x, size_t y) {
+    *adjm_entry(m, x, y) = 1;
+}
+
+void adjm_clear(AdjacencyMatrix m, size_t x, size_t y) {
+    *adjm_entry(m, x, y) = 0;
+}
+
+char adjm(AdjacencyMatrix m, size_t x, size_t y) {
+    return *adjm_entry(m, x, y);
+}
+
+typedef struct AdjacencyGraph {
+    size_t order;
+    AdjacencyMatrix matrix;
+} AdjacencyGraph;
+
+enum ControlFlowResult {
+    RA_CF_CONTINUE,
+    RA_CF_INTERFERE,
+    RA_CF_CLEARED,
+};
+
+int follow_control_flow(IRBlockList* visited, IRBlock* block, IRInstruction* a_use, IRInstruction* B) {
+    ASSERT(block, "Can not follow control flow of NULL block");
+    ASSERT(a_use, "Can not follow control flow of NULL use");
+    ASSERT(B, "Can not follow control flow of NULL definition");
+    while (1) {
+        // Return zero if block has been visited already.
+        for (IRBlockList* visited_it = visited; visited_it; visited_it = visited_it->next) {
+            if (visited_it->block == block) {
+                return RA_CF_CONTINUE;
+            }
+        }
+
+        // Add block to visited blocks list.
+        IRBlockList* new_block = calloc(1, sizeof(IRBlockList));
+        new_block->next = visited;
+        new_block->block = block;
+        visited = new_block;
+
+        // If use of A and definition of B are in this block, and the
+        // defintion of B precedes the use of A, then it stands to reason
+        // that B is in-between the defintion of A and its use, meaning
+        // there is an interference.
+        if (a_use->block == block) {
+            if (B->block == block && B->index < a_use->index) {
+                // TODO: Check that A and B are not precolored before clearing.
+                return B->type == IR_COPY ? RA_CF_CLEARED : RA_CF_INTERFERE;
+            }
+            return RA_CF_CLEARED;
+        }
+
+        if (B->block == block) {
+            // If only the definition of B is within block, then the use of
+            // A must come after, otherwise we would ahve seen it already.
+            return B->type == IR_COPY ? RA_CF_CLEARED : RA_CF_INTERFERE;
+        }
+
+        // Actually follow control flow, according to branch instruction.
+        switch (block->branch->type) {
+        case IR_RETURN:
+            return RA_CF_CLEARED;
+            break;
+        case IR_BRANCH:
+            block = block->branch->value.block;
+            continue;
+            break;
+        case IR_BRANCH_CONDITIONAL:
+            if (0) {}
+            int result = follow_control_flow(visited, block->branch->value.conditional_branch.true_branch, a_use, B);
+            if (result != RA_CF_CONTINUE) {
+                return result;
+            }
+            block = block->branch->value.conditional_branch.true_branch;
+            continue;
+            break;
+        default:
+            TODO("Handle branch instruction type: %d", block->branch->type);
+            break;
+        }
+    }
+    return RA_CF_CONTINUE;
+}
+
+/// If the definition of B lies between the definition of A and any one
+/// of its uses, then A and B interfere.
+char instructions_interfere(IRInstruction* A, IRInstruction* B) {
+    ASSERT(A && B, "Can not get interference of NULL instructions.");
+    for (Use* a_use = A->uses; a_use; a_use = a_use->next) {
+        ASSERT(a_use->user, "Use instruction can not be NULL!");
+
+        if (!A->block) {
+            ir_femit_instruction(stdout, A);
+        }
+
+        // If definition and use of A are in the same block, and if the
+        // definition of B is also in the same block, it is a simple index
+        // comparison to check for interference.
+        if (A->block == a_use->user->block) {
+            return B->block == A->block && A->index < B->index && a_use->user->index > B->index;
+        } else {
+            // A and B are not defined in the same block, follow control flow.
+            if (follow_control_flow(NULL, A->block, a_use->user, B) == RA_CF_INTERFERE) {
+                return 1;
+            }
+        }
+    }
+    return 0;
+}
+
+
+void build_adjacency_matrix(RegisterAllocationInfo *info, IRInstructionList *instructions, AdjacencyGraph *G) {
+  ASSERT(instructions, "Can not build adjacency matrix of NULL instruction list.");
+   IRInstructionList *last = instructions;
+   while (last->next) {
+     last = last->next;
+   }
+  size_t size = last->instruction->index + 1;
+  G->matrix = adjm_create(size);
+  for(IRInstructionList *A = instructions; A; A = A->next) {
+    for(IRInstructionList *B = instructions; B; B = B->next) {
+      if (A == B) { continue; }
+      if (adjm(G->matrix, A->instruction->index, B->instruction->index)) {
+        continue;
+      }
+      if (instructions_interfere(A->instruction, B->instruction)) {
+        adjm_set(G->matrix, A->instruction->index, B->instruction->index);
+      }
+    }
+  }
+}
+
+void print_adjacency_matrix(AdjacencyMatrix m) {
+    printf("\n");
+    for (size_t y = 0; y < m.size; ++y) {
+        printf("%4zu |%3hhu", y, adjm(m, 0, y));
+        for (size_t x = 1; x < y; ++x) {
+            printf(" %3hhu", adjm(m, x, y));
+        }
+        printf("\n");
+    }
+    printf("     |  %d", 0);
+    for (size_t x = 1; x < m.size; ++x) {
+        printf("%3zu", x);
+    }
+    printf("\n\n");
+}
+
+// ===== END ADJANCENCY MATRIX =====
+
 void ra(RegisterAllocationInfo* info) {
     if (!info) { return; }
 
@@ -211,6 +398,12 @@ void ra(RegisterAllocationInfo* info) {
     function_return_values(info);
 
     IRInstructionList* instructions = collect_instructions(info);
+
+    AdjacencyGraph G;
+    G.order = info->register_count;
+    build_adjacency_matrix(info, instructions, &G);
+
+    print_adjacency_matrix(G.matrix);
 
     ir_set_ids(info->context);
 

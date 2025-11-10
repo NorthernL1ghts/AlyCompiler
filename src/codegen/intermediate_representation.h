@@ -125,6 +125,8 @@ typedef struct IRInstruction {
   /// A unique identifier (mainly for debug purposes).
   size_t id;
 
+  IRBlock* block;
+
   // Register allocation.
   size_t index;
 
