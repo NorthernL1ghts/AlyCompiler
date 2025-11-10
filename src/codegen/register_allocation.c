@@ -648,6 +648,7 @@ void print_number_stack(NumberStack* stack) {
     printf("\n");
 }
 
+// FIXME: There is *something* in here crashing!!
 NumberStack* build_coloring_stack(RegisterAllocationInfo* info, IRInstructionList* instructions, AdjacencyGraph* G) {
     NumberStack* stack = NULL;
 
@@ -726,6 +727,70 @@ NumberStack* build_coloring_stack(RegisterAllocationInfo* info, IRInstructionLis
     return stack;
 }
 
+void color
+(RegisterAllocationInfo* info,
+    NumberStack* stack,
+    IRInstructionList* instructions,
+    AdjacencyListNode* array,
+    size_t length
+)
+{
+    for (NumberStack* i = stack; i; i = i->next) {
+        AdjacencyListNode* node = array + i->number;
+        if (node->color || node->instruction->result) {
+            continue;
+        }
+
+        Register r = 0;
+
+        size_t k = info->register_count;
+        // Each byte refers to register in register list that must not be
+        // assigned to this.
+        char* register_interferences = calloc(1, k);
+
+        for (AdjacencyList* adj_it = node->adjacencies; adj_it; adj_it = adj_it->next) {
+            if (adj_it->node->color) {
+                register_interferences[adj_it->node->color - 1] = 1;
+            }
+        }
+
+        for (size_t x = 0; x < k; ++x) {
+            if (!register_interferences[x]) {
+                r = x + 1;
+                break;
+            }
+        }
+
+        free(register_interferences);
+
+        if (!r) {
+            TODO("Can not color graph with %zu colors until stack spilling implemented!", k);
+        }
+
+        node->color = r;
+    }
+
+    for (size_t i = 0; i < length; ++i) {
+        AdjacencyListNode node = array[i];
+        IRInstruction* instruction = node.instruction;
+        Register r = node.color;
+        if (instruction->type == IR_PHI) {
+            for (IRPhiArgument* phi = instruction->value.phi_argument; phi; phi = phi->next) {
+                AdjacencyListNode* phi_node = array + phi->value->index;
+                phi_node->color = r;
+                phi->value->result = r;
+                // TODO: Should we follow argument recursively if it is also PHI?
+            }
+        }
+
+        // Do not over-write preallocated registers.
+        if (instruction->result) {
+            continue;
+        }
+        instruction->result = r;
+    }
+}
+
 void ra(RegisterAllocationInfo* info) {
     if (!info) { return; }
 
@@ -749,11 +814,16 @@ void ra(RegisterAllocationInfo* info) {
 
     ir_set_ids(info->context);
 
+
     build_adjacency_lists(info, instructions, &G);
     print_adjacency_array(G.list, G.matrix.size);
 
     NumberStack* stack = build_coloring_stack(info, instructions, &G);
     print_number_stack(stack);
+
+    fflush(stdout);
+
+    color(info, stack, instructions, G.list, G.matrix.size);
 
     print_instruction_list(instructions);
     // ir_femit(stdout, info->context);

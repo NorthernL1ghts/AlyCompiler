@@ -981,6 +981,9 @@ void codegen_entry_point_x86_64(CodegenContext *cg_context) {
 
 void emit_instruction(CodegenContext *context, IRInstruction *instruction) {
   switch (instruction->type) {
+  case IR_GLOBAL_ADDRESS:
+    femit_x86_64(context, I_LEA, NAME_TO_REGISTER, REG_RIP, instruction->value.name, instruction->result);
+    break;
   default:
     TODO("Handle IRType %d\n", instruction->type);
     break;
@@ -1087,6 +1090,10 @@ void codegen_emit_x86_64(CodegenContext *context) {
 
   RegisterAllocationInfo *info = ra_allocate_info(context, REG_RAX, GENERAL_REGISTER_COUNT, general, argument_register_count, argument_registers);
   ra(info);
+
+  for (IRFunction* function = context->all_functions; function; function = function->next) {
+    emit_function(context, function);
+  }
 
   TODO("Emit code based on intermediate representation in context.");
 }

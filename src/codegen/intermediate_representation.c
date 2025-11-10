@@ -53,7 +53,7 @@ void ir_femit_instruction(FILE* file, IRInstruction* instruction)
     fprintf(file, ID_FORMAT);
 # undef ID_FORMAT
 
-# define RESULT_FORMAT "%%%d | ", instruction->result
+# define RESULT_FORMAT "r%d | ", instruction->result
     if (instruction->result) {
         const size_t result_width = 6;
         size_t result_length = snprintf(NULL, 0, RESULT_FORMAT);
