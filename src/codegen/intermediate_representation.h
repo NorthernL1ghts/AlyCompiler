@@ -10,13 +10,6 @@
   ASSERT((name), "Could not allocate new IRInstruction.");  \
   (name)->type = (given_type);
 
-typedef struct Use {
-  IRInstruction* user;
-  struct Use* next;
-} Use;
-
-void mark_used(IRInstruction* usee, IRInstruction* user);
-
 typedef enum IRType {
   IR_IMMEDIATE,
   IR_CALL,
@@ -118,6 +111,21 @@ typedef union IRValue {
   IRGlobalAssignment global_assignment;
 } IRValue;
 
+
+typedef struct Use {
+  IRInstruction *user;
+  struct Use *next;
+} Use;
+
+void mark_used(IRInstruction *usee, IRInstruction *user);
+
+void set_pair_and_mark
+(IRInstruction *parent,
+ IRPair *pair,
+ IRInstruction *lhs,
+ IRInstruction *rhs);
+
+
 typedef struct IRInstruction {
   int type;
   IRValue value;
@@ -125,7 +133,7 @@ typedef struct IRInstruction {
   /// A unique identifier (mainly for debug purposes).
   size_t id;
 
-  IRBlock* block;
+  IRBlock *block;
 
   // Register allocation.
   size_t index;
@@ -134,7 +142,7 @@ typedef struct IRInstruction {
 
   // List of uses---instructions that use this instruction should go in
   // this list.
-  Use* uses;
+  Use *uses;
 
   // Doubly linked list.
   struct IRInstruction *previous;
@@ -155,6 +163,10 @@ typedef struct IRBlock {
   IRInstruction *branch;
 
   IRBlockPredecessor *predecessor;
+
+  /// A pointer to the function the block is attached to, or NULL if
+  /// detached.
+  IRFunction *function;
 
   // Doubly linked list.
   struct IRBlock *previous;
@@ -199,12 +211,20 @@ void ir_add_function_call_argument
 
 IRBlock *ir_block_create();
 
+void ir_block_attach_to_function
+(IRFunction *function,
+ IRBlock *new_block);
+
 void ir_block_attach
 (CodegenContext *context,
  IRBlock *new_block);
 
 IRFunction *ir_function_create();
 IRFunction *ir_function(CodegenContext *context);
+
+void ir_insert_into_block
+(IRBlock *block,
+ IRInstruction *new_instruction);
 
 void ir_insert
 (CodegenContext *context,
@@ -275,13 +295,16 @@ IRInstruction *ir_branch
 (CodegenContext *context,
  IRBlock *destination);
 
+IRInstruction *ir_branch_into_block
+(IRBlock *destination,
+ IRBlock *block);
+
 IRInstruction *ir_return
 (CodegenContext *context);
 
-IRInstruction* ir_copy
-(CodegenContext* context,
-    IRInstruction* source
-);
+IRInstruction *ir_copy
+(CodegenContext *context,
+ IRInstruction *source);
 
 IRInstruction *ir_comparison
 (CodegenContext *context,
