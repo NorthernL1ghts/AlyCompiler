@@ -1075,6 +1075,9 @@ void codegen_emit_x86_64(CodegenContext *context) {
   RegisterAllocationInfo *info = ra_allocate_info(context, REG_RAX, GENERAL_REGISTER_COUNT, general, argument_register_count, argument_registers);
   ra(info);
 
+  ir_set_ids(context);
+  ir_femit(stdout, context);
+
   for (IRFunction* function = context->all_functions; function; function = function->next) {
     emit_function(context, function);
   }
