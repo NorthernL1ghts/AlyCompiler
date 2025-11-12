@@ -22,18 +22,18 @@
 
 /// Lookup tables for register names.
 #define DEFINE_REGISTER_NAME_LOOKUP_FUNCTION(name, bits)                                       \
-  static const char *name(RegisterDescriptor descriptor) {                                      \
+    static const char* name(RegisterDescriptor descriptor) {                                    \
     static const char* register_names[] = { FOR_ALL_X86_64_REGISTERS(REGISTER_NAME_##bits) };    \
     if (descriptor <= 0 || descriptor > REG_COUNT) {                                              \
-      panic("ERROR::" #name "(): Could not find register with descriptor of %d\n", descriptor);    \
+        panic("ERROR::" #name "(): Could not find register with descriptor of %d\n", descriptor);  \
     }                                                                                               \
     return register_names[descriptor - 1];                                                           \
-  }
+}
 
 enum Registers_x86_64 {
-  REG_NONE,
-  FOR_ALL_X86_64_REGISTERS(DEFINE_REGISTER_ENUM)
-  REG_COUNT
+    REG_NONE,
+    FOR_ALL_X86_64_REGISTERS(DEFINE_REGISTER_ENUM)
+    REG_COUNT
 };
 
 /// Define register_name and friends.
@@ -55,42 +55,42 @@ DEFINE_REGISTER_NAME_LOOKUP_FUNCTION(register_name_8, 8)
 /// Types of conditional jump instructions (Jcc).
 /// Do NOT reorder these.
 enum IndirectJumpType_x86_64 {
-  JUMP_TYPE_A,
-  JUMP_TYPE_AE,
-  JUMP_TYPE_B,
-  JUMP_TYPE_BE,
-  JUMP_TYPE_C,
-  JUMP_TYPE_E,
-  JUMP_TYPE_Z,
-  JUMP_TYPE_G,
-  JUMP_TYPE_GE,
-  JUMP_TYPE_L,
-  JUMP_TYPE_LE,
-  JUMP_TYPE_NA,
-  JUMP_TYPE_NAE,
-  JUMP_TYPE_NB,
-  JUMP_TYPE_NBE,
-  JUMP_TYPE_NC,
-  JUMP_TYPE_NE,
-  JUMP_TYPE_NG,
-  JUMP_TYPE_NGE,
-  JUMP_TYPE_NL,
-  JUMP_TYPE_NLE,
-  JUMP_TYPE_NO,
-  JUMP_TYPE_NP,
-  JUMP_TYPE_NS,
-  JUMP_TYPE_NZ,
-  JUMP_TYPE_O,
-  JUMP_TYPE_P,
-  JUMP_TYPE_PE,
-  JUMP_TYPE_PO,
-  JUMP_TYPE_S,
+    JUMP_TYPE_A,
+    JUMP_TYPE_AE,
+    JUMP_TYPE_B,
+    JUMP_TYPE_BE,
+    JUMP_TYPE_C,
+    JUMP_TYPE_E,
+    JUMP_TYPE_Z,
+    JUMP_TYPE_G,
+    JUMP_TYPE_GE,
+    JUMP_TYPE_L,
+    JUMP_TYPE_LE,
+    JUMP_TYPE_NA,
+    JUMP_TYPE_NAE,
+    JUMP_TYPE_NB,
+    JUMP_TYPE_NBE,
+    JUMP_TYPE_NC,
+    JUMP_TYPE_NE,
+    JUMP_TYPE_NG,
+    JUMP_TYPE_NGE,
+    JUMP_TYPE_NL,
+    JUMP_TYPE_NLE,
+    JUMP_TYPE_NO,
+    JUMP_TYPE_NP,
+    JUMP_TYPE_NS,
+    JUMP_TYPE_NZ,
+    JUMP_TYPE_O,
+    JUMP_TYPE_P,
+    JUMP_TYPE_PE,
+    JUMP_TYPE_PO,
+    JUMP_TYPE_S,
 
-  JUMP_TYPE_COUNT,
+    JUMP_TYPE_COUNT,
 };
 
 /// Do NOT reorder these.
-static const char *jump_type_names_x86_64[] = {
+static const char* jump_type_names_x86_64[] = {
     "a",
     "ae",
     "b",
@@ -125,60 +125,60 @@ static const char *jump_type_names_x86_64[] = {
 
 // TODO: All instructions we use in x86_64 should be in this enum.
 enum Instructions_x86_64 {
-  /// Arithmetic instructions.
-  I_ADD,
-  I_SUB,
-  // I_MUL,
-  I_IMUL,
-  // I_DIV,
-  I_IDIV,
-  I_XOR,
-  I_CMP,
-  I_TEST,
-  I_CQO,
-  I_SETCC,
-  I_SAL, ///< Reg reg | Immediate imm, Reg reg
-  I_SHL = I_SAL,
-  I_SAR, ///< Reg reg | Immediate imm, Reg reg
-  I_SHR, ///< Reg reg | Immediate imm, Reg reg
+    /// Arithmetic instructions.
+    I_ADD,
+    I_SUB,
+    // I_MUL,
+    I_IMUL,
+    // I_DIV,
+    I_IDIV,
+    I_XOR,
+    I_CMP,
+    I_TEST,
+    I_CQO,
+    I_SETCC,
+    I_SAL, ///< Reg reg | Immediate imm, Reg reg
+    I_SHL = I_SAL,
+    I_SAR, ///< Reg reg | Immediate imm, Reg reg
+    I_SHR, ///< Reg reg | Immediate imm, Reg reg
 
-  /// Stack instructions.
-  I_PUSH,
-  I_POP,
+    /// Stack instructions.
+    I_PUSH,
+    I_POP,
 
-  /// Control flow.
-  I_CALL,
-  I_JMP, ///< const char* label | Reg reg
-  I_RET,
-  I_JCC, ///< enum IndirectJumpType type, const char* label
+    /// Control flow.
+    I_CALL,
+    I_JMP, ///< const char* label | Reg reg
+    I_RET,
+    I_JCC, ///< enum IndirectJumpType type, const char* label
 
-  /// Memory stuff.
-  I_MOV,
-  I_LEA,
+    /// Memory stuff.
+    I_MOV,
+    I_LEA,
 
-  /// Using this for anything other than Reg <-> Reg is a VERY bad
-  /// idea unless you know what you're doing.
-  I_XCHG,
+    /// Using this for anything other than Reg <-> Reg is a VERY bad
+    /// idea unless you know what you're doing.
+    I_XCHG,
 
-  I_COUNT
+    I_COUNT
 };
 
 enum InstructionOperands_x86_64 {
-  IMMEDIATE, ///< int64_t imm
-  MEMORY,    ///< Reg reg, int64_t offset
-  REGISTER,  ///< Reg reg
-  NAME,      ///< const char* name
+    IMMEDIATE, ///< int64_t imm
+    MEMORY,    ///< Reg reg, int64_t offset
+    REGISTER,  ///< Reg reg
+    NAME,      ///< const char* name
 
-  IMMEDIATE_TO_REGISTER, ///< int64_t imm, Reg dest
-  IMMEDIATE_TO_MEMORY,   ///< int64_t imm, Reg address, int64_t offset
-  MEMORY_TO_REGISTER,    ///< Reg address, int64_t offset, Reg dest
-  NAME_TO_REGISTER,      ///< Reg address, const char* name, Reg dest
-  REGISTER_TO_MEMORY,    ///< Reg src, Reg address, int64_t offset
-  REGISTER_TO_REGISTER,  ///< Reg src, Reg dest
-  REGISTER_TO_NAME,      ///< Reg src, Reg address, const char* name
+    IMMEDIATE_TO_REGISTER, ///< int64_t imm, Reg dest
+    IMMEDIATE_TO_MEMORY,   ///< int64_t imm, Reg address, int64_t offset
+    MEMORY_TO_REGISTER,    ///< Reg address, int64_t offset, Reg dest
+    NAME_TO_REGISTER,      ///< Reg address, const char* name, Reg dest
+    REGISTER_TO_MEMORY,    ///< Reg src, Reg address, int64_t offset
+    REGISTER_TO_REGISTER,  ///< Reg src, Reg dest
+    REGISTER_TO_NAME,      ///< Reg src, Reg address, const char* name
 };
 
-const char *comparison_suffixes_x86_64[COMPARE_COUNT] = {
+const char* comparison_suffixes_x86_64[COMPARE_COUNT] = {
     "e",
     "ne",
     "l",
@@ -187,7 +187,7 @@ const char *comparison_suffixes_x86_64[COMPARE_COUNT] = {
     "ge",
 };
 
-static const char *instruction_mnemonic_x86_64(CodegenContext *context, enum Instructions_x86_64 instruction) {
+static const char* instruction_mnemonic_x86_64(CodegenContext* context, enum Instructions_x86_64 instruction) {
   ASSERT(I_COUNT == 21, "ERROR: instruction_mnemonic_x86_64() must exhaustively handle all instructions.");
   // x86_64 instructions that aren't different across syntaxes can go here!
   switch (instruction) {
@@ -221,176 +221,160 @@ static const char *instruction_mnemonic_x86_64(CodegenContext *context, enum Ins
 
     case CG_ASM_DIALECT_ATT:
     switch (instruction) {
-      default: panic("instruction_mnemonic_x86_64(): Unknown instruction.");
-      case I_CQO: return "cqto";
+        default: panic("instruction_mnemonic_x86_64(): Unknown instruction.");
+        case I_CQO: return "cqto";
     }
 
     case CG_ASM_DIALECT_INTEL:
     switch (instruction) {
-      default: panic("instruction_mnemonic_x86_64(): Unknown instruction.");
-      case I_CQO: return "cqo";
+        default: panic("instruction_mnemonic_x86_64(): Unknown instruction.");
+        case I_CQO: return "cqo";
     }
   }
 }
 
-static void femit_x86_64_imm_to_reg(CodegenContext *context, enum Instructions_x86_64 inst, va_list args) {
-  int64_t immediate                    = va_arg(args, int64_t);
-  RegisterDescriptor destination_register  = va_arg(args, RegisterDescriptor);
+static void femit_x86_64_imm_to_reg(CodegenContext* context, enum Instructions_x86_64 inst, va_list args) {
+    int64_t immediate = va_arg(args, int64_t);
+    RegisterDescriptor destination_register = va_arg(args, RegisterDescriptor);
 
-  const char *mnemonic = instruction_mnemonic_x86_64(context, inst);
-  const char *destination = register_name(destination_register);
+    const char* mnemonic = instruction_mnemonic_x86_64(context, inst);
+    const char* destination = register_name(destination_register);
 
-  switch (context->dialect) {
+    switch (context->dialect) {
     case CG_ASM_DIALECT_ATT:
-      fprintf(context->code, "%s $%" PRId64 ", %%%s\n",
-          mnemonic, immediate, destination);
-      break;
+        fprintf(context->code, "%s $%" PRId64 ", %%%s\n", mnemonic, immediate, destination);
+        break;
     case CG_ASM_DIALECT_INTEL:
-      fprintf(context->code, "%s %s, %" PRId64 "\n",
-          mnemonic, destination, immediate);
-      break;
+        fprintf(context->code, "%s %s, %" PRId64 "\n", mnemonic, destination, immediate);
+        break;
     default: panic("ERROR: femit_x86_64_imm_to_reg(): Unsupported dialect %d", context->dialect);
-  }
+    }
 }
 
-static void femit_x86_64_imm_to_mem(CodegenContext *context, enum Instructions_x86_64 inst, va_list args) {
-  int64_t immediate                    = va_arg(args, int64_t);
-  RegisterDescriptor address_register  = va_arg(args, RegisterDescriptor);
-  int64_t offset                       = va_arg(args, int64_t);
+static void femit_x86_64_imm_to_mem(CodegenContext* context, enum Instructions_x86_64 inst, va_list args) {
+  int64_t immediate = va_arg(args, int64_t);
+  RegisterDescriptor address_register = va_arg(args, RegisterDescriptor);
+  int64_t offset = va_arg(args, int64_t);
 
-  const char *mnemonic = instruction_mnemonic_x86_64(context, inst);
-  const char *address = register_name(address_register);
+  const char* mnemonic = instruction_mnemonic_x86_64(context, inst);
+  const char* address = register_name(address_register);
 
   switch (context->dialect) {
-    case CG_ASM_DIALECT_ATT:
-      fprintf(context->code, "%s $%" PRId64 ", %" PRId64 "(%%%s)\n",
-          mnemonic, immediate, offset, address);
-      break;
-    case CG_ASM_DIALECT_INTEL:
-      fprintf(context->code, "%s [%s + %" PRId64 "], %" PRId64 "\n",
-          mnemonic, address, offset, immediate);
-      break;
+  case CG_ASM_DIALECT_ATT:
+        fprintf(context->code, "%s $%" PRId64 ", %" PRId64 "(%%%s)\n", mnemonic, immediate, offset, address);
+        break;
+  case CG_ASM_DIALECT_INTEL:
+        fprintf(context->code, "%s [%s + %" PRId64 "], %" PRId64 "\n", mnemonic, address, offset, immediate);
+        break;
     default: panic("ERROR: femit_x86_64_imm_to_mem(): Unsupported dialect %d", context->dialect);
   }
 }
 
-static void femit_x86_64_mem_to_reg(CodegenContext *context, enum Instructions_x86_64 inst, va_list args) {
-  RegisterDescriptor address_register      = va_arg(args, RegisterDescriptor);
-  int64_t offset                           = va_arg(args, int64_t);
-  RegisterDescriptor destination_register  = va_arg(args, RegisterDescriptor);
+static void femit_x86_64_mem_to_reg(CodegenContext* context, enum Instructions_x86_64 inst, va_list args) {
+    RegisterDescriptor address_register = va_arg(args, RegisterDescriptor);
+    int64_t offset = va_arg(args, int64_t);
+    RegisterDescriptor destination_register = va_arg(args, RegisterDescriptor);
 
-  const char *mnemonic = instruction_mnemonic_x86_64(context, inst);
-  const char *address = register_name(address_register);
-  const char *destination = register_name(destination_register);
+    const char* mnemonic = instruction_mnemonic_x86_64(context, inst);
+    const char* address = register_name(address_register);
+    const char* destination = register_name(destination_register);
 
-  switch (context->dialect) {
+    switch (context->dialect) {
     case CG_ASM_DIALECT_ATT:
-      fprintf(context->code, "%s %" PRId64 "(%%%s), %%%s\n",
-          mnemonic, offset, address, destination);
-      break;
+        fprintf(context->code, "%s %" PRId64 "(%%%s), %%%s\n", mnemonic, offset, address, destination);
+        break;
     case CG_ASM_DIALECT_INTEL:
-      fprintf(context->code, "%s %s, [%s + %" PRId64 "]\n",
-          mnemonic, destination, address, offset);
-      break;
+        fprintf(context->code, "%s %s, [%s + %" PRId64 "]\n", mnemonic, destination, address, offset);
+        break;
     default: panic("ERROR: femit_x86_64_mem_to_reg(): Unsupported dialect %d", context->dialect);
-  }
+    }
 }
 
-static void femit_x86_64_name_to_reg(CodegenContext *context, enum Instructions_x86_64 inst, va_list args) {
-  RegisterDescriptor address_register      = va_arg(args, RegisterDescriptor);
-  char *name                               = va_arg(args, char *);
-  RegisterDescriptor destination_register  = va_arg(args, RegisterDescriptor);
+static void femit_x86_64_name_to_reg(CodegenContext* context, enum Instructions_x86_64 inst, va_list args) {
+  RegisterDescriptor address_register = va_arg(args, RegisterDescriptor);
+  char* name = va_arg(args, char*);
+  RegisterDescriptor destination_register = va_arg(args, RegisterDescriptor);
 
-  const char *mnemonic = instruction_mnemonic_x86_64(context, inst);
-  const char *address = register_name(address_register);
-  const char *destination = register_name(destination_register);
+  const char* mnemonic = instruction_mnemonic_x86_64(context, inst);
+  const char* address = register_name(address_register);
+  const char* destination = register_name(destination_register);
 
-  switch (context->dialect) {
+    switch (context->dialect) {
     case CG_ASM_DIALECT_ATT:
-      fprintf(context->code, "%s %s(%%%s), %%%s\n",
-          mnemonic, name, address, destination);
-      break;
+        fprintf(context->code, "%s %s(%%%s), %%%s\n", mnemonic, name, address, destination);
+        break;
     case CG_ASM_DIALECT_INTEL:
-      fprintf(context->code, "%s %s, [%s + %s]\n",
-          mnemonic, destination, address, name);
-      break;
+        fprintf(context->code, "%s %s, [%s + %s]\n", mnemonic, destination, address, name);
+        break;
     default: panic("ERROR: femit_x86_64_name_to_reg(): Unsupported dialect %d", context->dialect);
-  }
+    }
 }
 
-static void femit_x86_64_reg_to_mem(CodegenContext *context, enum Instructions_x86_64 inst, va_list args) {
-  RegisterDescriptor source_register   = va_arg(args, RegisterDescriptor);
-  RegisterDescriptor address_register  = va_arg(args, RegisterDescriptor);
-  int64_t offset                       = va_arg(args, int64_t);
+static void femit_x86_64_reg_to_mem(CodegenContext* context, enum Instructions_x86_64 inst, va_list args) {
+  RegisterDescriptor source_register = va_arg(args, RegisterDescriptor);
+  RegisterDescriptor address_register = va_arg(args, RegisterDescriptor);
+  int64_t offset = va_arg(args, int64_t);
 
-  const char *mnemonic = instruction_mnemonic_x86_64(context, inst);
-  const char *source = register_name(source_register);
-  const char *address = register_name(address_register);
+  const char* mnemonic = instruction_mnemonic_x86_64(context, inst);
+  const char* source = register_name(source_register);
+  const char* address = register_name(address_register);
 
   switch (context->dialect) {
     case CG_ASM_DIALECT_ATT:
       if (offset) {
-        fprintf(context->code, "%s %%%s, %" PRId64 "(%%%s)\n",
-                mnemonic, source, offset, address);
+            fprintf(context->code, "%s %%%s, %" PRId64 "(%%%s)\n", mnemonic, source, offset, address);
       } else {
-        fprintf(context->code, "%s %%%s, (%%%s)\n",
-                mnemonic, source, address);
+            fprintf(context->code, "%s %%%s, (%%%s)\n", mnemonic, source, address);
       }
       break;
     case CG_ASM_DIALECT_INTEL:
       if (offset) {
-        fprintf(context->code, "%s [%s + %" PRId64 "], %s\n",
-                mnemonic, address, offset, source);
+        fprintf(context->code, "%s [%s + %" PRId64 "], %s\n", mnemonic, address, offset, source);
       } else {
-        fprintf(context->code, "%s [%s], %s\n",
-                mnemonic, address, source);
+        fprintf(context->code, "%s [%s], %s\n", mnemonic, address, source);
       }
       break;
     default: panic("ERROR: femit_x86_64_reg_to_mem(): Unsupported dialect %d", context->dialect);
   }
 }
 
-static void femit_x86_64_reg_to_reg(CodegenContext *context, enum Instructions_x86_64 inst, va_list args) {
-  RegisterDescriptor source_register       = va_arg(args, RegisterDescriptor);
-  RegisterDescriptor destination_register  = va_arg(args, RegisterDescriptor);
+static void femit_x86_64_reg_to_reg(CodegenContext* context, enum Instructions_x86_64 inst, va_list args) {
+  RegisterDescriptor source_register = va_arg(args, RegisterDescriptor);
+  RegisterDescriptor destination_register = va_arg(args, RegisterDescriptor);
 
-  const char *mnemonic = instruction_mnemonic_x86_64(context, inst);
-  const char *source = register_name(source_register);
-  const char *destination = register_name(destination_register);
+  const char* mnemonic = instruction_mnemonic_x86_64(context, inst);
+  const char* source = register_name(source_register);
+  const char* destination = register_name(destination_register);
 
   // Optimise away moves from a register to itself
   if (inst == I_MOV && source_register == destination_register) return;
 
   switch (context->dialect) {
-    case CG_ASM_DIALECT_ATT:
-      fprintf(context->code, "%s %%%s, %%%s\n",
-          mnemonic, source, destination);
+  case CG_ASM_DIALECT_ATT:
+      fprintf(context->code, "%s %%%s, %%%s\n", mnemonic, source, destination);
       break;
-    case CG_ASM_DIALECT_INTEL:
-      fprintf(context->code, "%s %s, %s\n",
-          mnemonic, destination, source);
+  case CG_ASM_DIALECT_INTEL:
+      fprintf(context->code, "%s %s, %s\n", mnemonic, destination, source);
       break;
     default: panic("ERROR: femit_x86_64_reg_to_reg(): Unsupported dialect %d", context->dialect);
   }
 }
 
-static void femit_x86_64_reg_to_name(CodegenContext *context, enum Instructions_x86_64 inst, va_list args) {
-  RegisterDescriptor source_register  = va_arg(args, RegisterDescriptor);
-  RegisterDescriptor address_register      = va_arg(args, RegisterDescriptor);
-  char *name                               = va_arg(args, char *);
+static void femit_x86_64_reg_to_name(CodegenContext* context, enum Instructions_x86_64 inst, va_list args) {
+  RegisterDescriptor source_register = va_arg(args, RegisterDescriptor);
+  RegisterDescriptor address_register= va_arg(args, RegisterDescriptor);
+  char* name = va_arg(args, char*);
 
-  const char *mnemonic = instruction_mnemonic_x86_64(context, inst);
-  const char *source = register_name(source_register);
-  const char *address = register_name(address_register);
+  const char* mnemonic = instruction_mnemonic_x86_64(context, inst);
+  const char* source = register_name(source_register);
+  const char* address = register_name(address_register);
 
   switch (context->dialect) {
     case CG_ASM_DIALECT_ATT:
-      fprintf(context->code, "%s %%%s, %s(%%%s)\n",
-          mnemonic, source, name, address);
+      fprintf(context->code, "%s %%%s, %s(%%%s)\n", mnemonic, source, name, address);
       break;
     case CG_ASM_DIALECT_INTEL:
-      fprintf(context->code, "%s [%s + %s], %s\n",
-          mnemonic, address, name, source);
+      fprintf(context->code, "%s [%s + %s], %s\n", mnemonic, address, name, source);
       break;
     default: panic("ERROR: femit_x86_64_reg_to_name(): Unsupported dialect %d", context->dialect);
   }

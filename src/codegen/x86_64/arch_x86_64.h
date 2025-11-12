@@ -26,9 +26,9 @@
   F(RIP, "rip", "eip", "ip", "ipl")
 
 /// Context allocation/deallocation
-CodegenContext *codegen_context_x86_64_mswin_create(CodegenContext *parent);
-void codegen_context_x86_64_mswin_free(CodegenContext *ctx);
+CodegenContext* codegen_context_x86_64_mswin_create(CodegenContext* parent);
+void codegen_context_x86_64_mswin_free(CodegenContext* ctx);
 
-void codegen_emit_x86_64(CodegenContext *context);
+void codegen_emit_x86_64(CodegenContext* context);
 
-#endif // ALY_COMPILER_ARCH_X86_64_H
+#endif /* ALY_COMPILER_ARCH_X86_64_H */

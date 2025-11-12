@@ -413,13 +413,13 @@ Error codegen_expression
         expr = expr->next_child;
       }
 
-      ir_branch(cg_context, join_block);
-
       last_otherwise_block = cg_context->block;
 
     } else {
       ir_immediate(cg_context, 0);
     }
+
+    ir_branch(cg_context, join_block);
 
     // This assumes that the last instruction in a block returns a
     // value; if it doesn't, we will simply return zero. This should
@@ -563,7 +563,7 @@ Error codegen_expression
     size_in_bytes = tmpnode->children->value.integer;
 
     IRInstruction *local = ir_stack_allocate(cg_context, size_in_bytes);
-    Node *local_reference = node_allocate();    
+    Node *local_reference = node_allocate();
     local_reference->value.ir_instruction = local;
     environment_set(cg_context->locals, expression->children, local_reference);
     break;

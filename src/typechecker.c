@@ -501,24 +501,14 @@ Error typecheck_expression
         }
         // If it's not a pointer reinterpret, ensure both expression and
         // cast type are base types.
-        static Node int_type={
+        static Node int_type = {
             .type = NODE_TYPE_SYMBOL,
-            .value.symbol = "integer",  // Properly assign string literal
-            .pointer_indirection = 0,   // Set other members, if necessary
-            .result = NULL,             // Initialize other members as needed
-            .parent = NULL,             // Initialize other pointers to NULL if needed
-            .children = NULL,
-            .next_child = NULL
+            .value.symbol = "integer"
         };
 
         static Node byte_type={
-            .type = NODE_TYPE_SYMBOL,
-            .value.symbol = "byte",     // Properly assign string literal
-            .pointer_indirection = 0,   // Set other members, if necessary
-            .result = NULL,             // Initialize other members as needed
-            .parent = NULL,             // Initialize other pointers to NULL if needed
-            .children = NULL,
-            .next_child = NULL
+            .type=NODE_TYPE_SYMBOL,
+            .value.symbol="byte"
         };
 
         // TODO: Extract is_base_type() helper function.
