@@ -1,6 +1,7 @@
 #include <codegen/x86_64/arch_x86_64.h>
 
 #include <codegen.h>
+#include <codegen/codegen_forward.h>
 #include <codegen/intermediate_representation.h>
 #include <codegen/register_allocation.h>
 #include <error.h>
@@ -21,19 +22,20 @@
 #define REGISTER_NAME_8(ident, name, name_32, name_16, name_8, ...) name_8,
 
 /// Lookup tables for register names.
-#define DEFINE_REGISTER_NAME_LOOKUP_FUNCTION(name, bits)                                       \
-    static const char* name(RegisterDescriptor descriptor) {                                    \
-    static const char* register_names[] = { FOR_ALL_X86_64_REGISTERS(REGISTER_NAME_##bits) };    \
-    if (descriptor <= 0 || descriptor > REG_COUNT) {                                              \
-        panic("ERROR::" #name "(): Could not find register with descriptor of %d\n", descriptor);  \
-    }                                                                                               \
-    return register_names[descriptor - 1];                                                           \
-}
+#define DEFINE_REGISTER_NAME_LOOKUP_FUNCTION(name, bits)                \
+  static const char *name(RegisterDescriptor descriptor) {              \
+    static const char* register_names[] =                               \
+      { FOR_ALL_X86_64_REGISTERS(REGISTER_NAME_##bits) };               \
+    if (descriptor <= 0 || descriptor > REG_COUNT) {                    \
+      panic("ERROR::" #name "(): Could not find register with descriptor of %d\n", descriptor); \
+    }                                                                   \
+    return register_names[descriptor - 1];                              \
+  }
 
 enum Registers_x86_64 {
-    REG_NONE,
-    FOR_ALL_X86_64_REGISTERS(DEFINE_REGISTER_ENUM)
-    REG_COUNT
+  REG_NONE,
+  FOR_ALL_X86_64_REGISTERS(DEFINE_REGISTER_ENUM)
+  REG_COUNT
 };
 
 /// Define register_name and friends.
@@ -50,47 +52,48 @@ DEFINE_REGISTER_NAME_LOOKUP_FUNCTION(register_name_8, 8)
 #undef DEFINE_REGISTER_ENUM
 #undef DEFINE_REGISTER_NAME_LOOKUP_FUNCTION
 
+// TODO: This should probably be 13?
 #define GENERAL_REGISTER_COUNT 14
 
 /// Types of conditional jump instructions (Jcc).
 /// Do NOT reorder these.
 enum IndirectJumpType_x86_64 {
-    JUMP_TYPE_A,
-    JUMP_TYPE_AE,
-    JUMP_TYPE_B,
-    JUMP_TYPE_BE,
-    JUMP_TYPE_C,
-    JUMP_TYPE_E,
-    JUMP_TYPE_Z,
-    JUMP_TYPE_G,
-    JUMP_TYPE_GE,
-    JUMP_TYPE_L,
-    JUMP_TYPE_LE,
-    JUMP_TYPE_NA,
-    JUMP_TYPE_NAE,
-    JUMP_TYPE_NB,
-    JUMP_TYPE_NBE,
-    JUMP_TYPE_NC,
-    JUMP_TYPE_NE,
-    JUMP_TYPE_NG,
-    JUMP_TYPE_NGE,
-    JUMP_TYPE_NL,
-    JUMP_TYPE_NLE,
-    JUMP_TYPE_NO,
-    JUMP_TYPE_NP,
-    JUMP_TYPE_NS,
-    JUMP_TYPE_NZ,
-    JUMP_TYPE_O,
-    JUMP_TYPE_P,
-    JUMP_TYPE_PE,
-    JUMP_TYPE_PO,
-    JUMP_TYPE_S,
+  JUMP_TYPE_A,
+  JUMP_TYPE_AE,
+  JUMP_TYPE_B,
+  JUMP_TYPE_BE,
+  JUMP_TYPE_C,
+  JUMP_TYPE_E,
+  JUMP_TYPE_Z,
+  JUMP_TYPE_G,
+  JUMP_TYPE_GE,
+  JUMP_TYPE_L,
+  JUMP_TYPE_LE,
+  JUMP_TYPE_NA,
+  JUMP_TYPE_NAE,
+  JUMP_TYPE_NB,
+  JUMP_TYPE_NBE,
+  JUMP_TYPE_NC,
+  JUMP_TYPE_NE,
+  JUMP_TYPE_NG,
+  JUMP_TYPE_NGE,
+  JUMP_TYPE_NL,
+  JUMP_TYPE_NLE,
+  JUMP_TYPE_NO,
+  JUMP_TYPE_NP,
+  JUMP_TYPE_NS,
+  JUMP_TYPE_NZ,
+  JUMP_TYPE_O,
+  JUMP_TYPE_P,
+  JUMP_TYPE_PE,
+  JUMP_TYPE_PO,
+  JUMP_TYPE_S,
 
-    JUMP_TYPE_COUNT,
+  JUMP_TYPE_COUNT,
 };
 
 /// Do NOT reorder these.
-static const char* jump_type_names_x86_64[] = {
+static const char *jump_type_names_x86_64[] = {
     "a",
     "ae",
     "b",
@@ -125,60 +128,60 @@ static const char* jump_type_names_x86_64[] = {
 
 // TODO: All instructions we use in x86_64 should be in this enum.
 enum Instructions_x86_64 {
-    /// Arithmetic instructions.
-    I_ADD,
-    I_SUB,
-    // I_MUL,
-    I_IMUL,
-    // I_DIV,
-    I_IDIV,
-    I_XOR,
-    I_CMP,
-    I_TEST,
-    I_CQO,
-    I_SETCC,
-    I_SAL, ///< Reg reg | Immediate imm, Reg reg
-    I_SHL = I_SAL,
-    I_SAR, ///< Reg reg | Immediate imm, Reg reg
-    I_SHR, ///< Reg reg | Immediate imm, Reg reg
+  /// Arithmetic instructions.
+  I_ADD,
+  I_SUB,
+  // I_MUL,
+  I_IMUL,
+  // I_DIV,
+  I_IDIV,
+  I_XOR,
+  I_CMP,
+  I_TEST,
+  I_CQO,
+  I_SETCC,
+  I_SAL, ///< Reg reg | Immediate imm, Reg reg
+  I_SHL = I_SAL,
+  I_SAR, ///< Reg reg | Immediate imm, Reg reg
+  I_SHR, ///< Reg reg | Immediate imm, Reg reg
 
-    /// Stack instructions.
-    I_PUSH,
-    I_POP,
+  /// Stack instructions.
+  I_PUSH,
+  I_POP,
 
-    /// Control flow.
-    I_CALL,
-    I_JMP, ///< const char* label | Reg reg
-    I_RET,
-    I_JCC, ///< enum IndirectJumpType type, const char* label
+  /// Control flow.
+  I_CALL,
+  I_JMP, ///< const char* label | Reg reg
+  I_RET,
+  I_JCC, ///< enum IndirectJumpType type, const char* label
 
-    /// Memory stuff.
-    I_MOV,
-    I_LEA,
+  /// Memory stuff.
+  I_MOV,
+  I_LEA,
 
-    /// Using this for anything other than Reg <-> Reg is a VERY bad
-    /// idea unless you know what you're doing.
-    I_XCHG,
+  /// Using this for anything other than Reg <-> Reg is a VERY bad
+  /// idea unless you know what you're doing.
+  I_XCHG,
 
-    I_COUNT
+  I_COUNT
 };
 
 enum InstructionOperands_x86_64 {
-    IMMEDIATE, ///< int64_t imm
-    MEMORY,    ///< Reg reg, int64_t offset
-    REGISTER,  ///< Reg reg
-    NAME,      ///< const char* name
+  IMMEDIATE, ///< int64_t imm
+  MEMORY,    ///< Reg reg, int64_t offset
+  REGISTER,  ///< Reg reg
+  NAME,      ///< const char* name
 
-    IMMEDIATE_TO_REGISTER, ///< int64_t imm, Reg dest
-    IMMEDIATE_TO_MEMORY,   ///< int64_t imm, Reg address, int64_t offset
-    MEMORY_TO_REGISTER,    ///< Reg address, int64_t offset, Reg dest
-    NAME_TO_REGISTER,      ///< Reg address, const char* name, Reg dest
-    REGISTER_TO_MEMORY,    ///< Reg src, Reg address, int64_t offset
-    REGISTER_TO_REGISTER,  ///< Reg src, Reg dest
-    REGISTER_TO_NAME,      ///< Reg src, Reg address, const char* name
+  IMMEDIATE_TO_REGISTER, ///< int64_t imm, Reg dest
+  IMMEDIATE_TO_MEMORY,   ///< int64_t imm, Reg address, int64_t offset
+  MEMORY_TO_REGISTER,    ///< Reg address, int64_t offset, Reg dest
+  NAME_TO_REGISTER,      ///< Reg address, const char* name, Reg dest
+  REGISTER_TO_MEMORY,    ///< Reg src, Reg address, int64_t offset
+  REGISTER_TO_REGISTER,  ///< Reg src, Reg dest
+  REGISTER_TO_NAME,      ///< Reg src, Reg address, const char* name
 };
 
-const char* comparison_suffixes_x86_64[COMPARE_COUNT] = {
+const char *comparison_suffixes_x86_64[COMPARE_COUNT] = {
     "e",
     "ne",
     "l",
@@ -187,7 +190,7 @@ const char* comparison_suffixes_x86_64[COMPARE_COUNT] = {
     "ge",
 };
 
-static const char* instruction_mnemonic_x86_64(CodegenContext* context, enum Instructions_x86_64 instruction) {
+static const char *instruction_mnemonic_x86_64(CodegenContext *context, enum Instructions_x86_64 instruction) {
   ASSERT(I_COUNT == 21, "ERROR: instruction_mnemonic_x86_64() must exhaustively handle all instructions.");
   // x86_64 instructions that aren't different across syntaxes can go here!
   switch (instruction) {
@@ -221,160 +224,176 @@ static const char* instruction_mnemonic_x86_64(CodegenContext* context, enum Ins
 
     case CG_ASM_DIALECT_ATT:
     switch (instruction) {
-        default: panic("instruction_mnemonic_x86_64(): Unknown instruction.");
-        case I_CQO: return "cqto";
+      default: panic("instruction_mnemonic_x86_64(): Unknown instruction.");
+      case I_CQO: return "cqto";
     }
 
     case CG_ASM_DIALECT_INTEL:
     switch (instruction) {
-        default: panic("instruction_mnemonic_x86_64(): Unknown instruction.");
-        case I_CQO: return "cqo";
+      default: panic("instruction_mnemonic_x86_64(): Unknown instruction.");
+      case I_CQO: return "cqo";
     }
   }
 }
 
-static void femit_x86_64_imm_to_reg(CodegenContext* context, enum Instructions_x86_64 inst, va_list args) {
-    int64_t immediate = va_arg(args, int64_t);
-    RegisterDescriptor destination_register = va_arg(args, RegisterDescriptor);
+static void femit_x86_64_imm_to_reg(CodegenContext *context, enum Instructions_x86_64 inst, va_list args) {
+  int64_t immediate                    = va_arg(args, int64_t);
+  RegisterDescriptor destination_register  = va_arg(args, RegisterDescriptor);
 
-    const char* mnemonic = instruction_mnemonic_x86_64(context, inst);
-    const char* destination = register_name(destination_register);
-
-    switch (context->dialect) {
-    case CG_ASM_DIALECT_ATT:
-        fprintf(context->code, "%s $%" PRId64 ", %%%s\n", mnemonic, immediate, destination);
-        break;
-    case CG_ASM_DIALECT_INTEL:
-        fprintf(context->code, "%s %s, %" PRId64 "\n", mnemonic, destination, immediate);
-        break;
-    default: panic("ERROR: femit_x86_64_imm_to_reg(): Unsupported dialect %d", context->dialect);
-    }
-}
-
-static void femit_x86_64_imm_to_mem(CodegenContext* context, enum Instructions_x86_64 inst, va_list args) {
-  int64_t immediate = va_arg(args, int64_t);
-  RegisterDescriptor address_register = va_arg(args, RegisterDescriptor);
-  int64_t offset = va_arg(args, int64_t);
-
-  const char* mnemonic = instruction_mnemonic_x86_64(context, inst);
-  const char* address = register_name(address_register);
+  const char *mnemonic = instruction_mnemonic_x86_64(context, inst);
+  const char *destination = register_name(destination_register);
 
   switch (context->dialect) {
-  case CG_ASM_DIALECT_ATT:
-        fprintf(context->code, "%s $%" PRId64 ", %" PRId64 "(%%%s)\n", mnemonic, immediate, offset, address);
-        break;
-  case CG_ASM_DIALECT_INTEL:
-        fprintf(context->code, "%s [%s + %" PRId64 "], %" PRId64 "\n", mnemonic, address, offset, immediate);
-        break;
+    case CG_ASM_DIALECT_ATT:
+      fprintf(context->code, "%s $%" PRId64 ", %%%s\n",
+          mnemonic, immediate, destination);
+      break;
+    case CG_ASM_DIALECT_INTEL:
+      fprintf(context->code, "%s %s, %" PRId64 "\n",
+          mnemonic, destination, immediate);
+      break;
+    default: panic("ERROR: femit_x86_64_imm_to_reg(): Unsupported dialect %d", context->dialect);
+  }
+}
+
+static void femit_x86_64_imm_to_mem(CodegenContext *context, enum Instructions_x86_64 inst, va_list args) {
+  int64_t immediate                    = va_arg(args, int64_t);
+  RegisterDescriptor address_register  = va_arg(args, RegisterDescriptor);
+  int64_t offset                       = va_arg(args, int64_t);
+
+  const char *mnemonic = instruction_mnemonic_x86_64(context, inst);
+  const char *address = register_name(address_register);
+
+  switch (context->dialect) {
+    case CG_ASM_DIALECT_ATT:
+      fprintf(context->code, "%s $%" PRId64 ", %" PRId64 "(%%%s)\n",
+          mnemonic, immediate, offset, address);
+      break;
+    case CG_ASM_DIALECT_INTEL:
+      fprintf(context->code, "%s [%s + %" PRId64 "], %" PRId64 "\n",
+          mnemonic, address, offset, immediate);
+      break;
     default: panic("ERROR: femit_x86_64_imm_to_mem(): Unsupported dialect %d", context->dialect);
   }
 }
 
-static void femit_x86_64_mem_to_reg(CodegenContext* context, enum Instructions_x86_64 inst, va_list args) {
-    RegisterDescriptor address_register = va_arg(args, RegisterDescriptor);
-    int64_t offset = va_arg(args, int64_t);
-    RegisterDescriptor destination_register = va_arg(args, RegisterDescriptor);
+static void femit_x86_64_mem_to_reg(CodegenContext *context, enum Instructions_x86_64 inst, va_list args) {
+  RegisterDescriptor address_register      = va_arg(args, RegisterDescriptor);
+  int64_t offset                           = va_arg(args, int64_t);
+  RegisterDescriptor destination_register  = va_arg(args, RegisterDescriptor);
 
-    const char* mnemonic = instruction_mnemonic_x86_64(context, inst);
-    const char* address = register_name(address_register);
-    const char* destination = register_name(destination_register);
+  const char *mnemonic = instruction_mnemonic_x86_64(context, inst);
+  const char *address = register_name(address_register);
+  const char *destination = register_name(destination_register);
 
-    switch (context->dialect) {
+  switch (context->dialect) {
     case CG_ASM_DIALECT_ATT:
-        fprintf(context->code, "%s %" PRId64 "(%%%s), %%%s\n", mnemonic, offset, address, destination);
-        break;
+      fprintf(context->code, "%s %" PRId64 "(%%%s), %%%s\n",
+          mnemonic, offset, address, destination);
+      break;
     case CG_ASM_DIALECT_INTEL:
-        fprintf(context->code, "%s %s, [%s + %" PRId64 "]\n", mnemonic, destination, address, offset);
-        break;
+      fprintf(context->code, "%s %s, [%s + %" PRId64 "]\n",
+          mnemonic, destination, address, offset);
+      break;
     default: panic("ERROR: femit_x86_64_mem_to_reg(): Unsupported dialect %d", context->dialect);
-    }
+  }
 }
 
-static void femit_x86_64_name_to_reg(CodegenContext* context, enum Instructions_x86_64 inst, va_list args) {
-  RegisterDescriptor address_register = va_arg(args, RegisterDescriptor);
-  char* name = va_arg(args, char*);
-  RegisterDescriptor destination_register = va_arg(args, RegisterDescriptor);
+static void femit_x86_64_name_to_reg(CodegenContext *context, enum Instructions_x86_64 inst, va_list args) {
+  RegisterDescriptor address_register      = va_arg(args, RegisterDescriptor);
+  char *name                               = va_arg(args, char *);
+  RegisterDescriptor destination_register  = va_arg(args, RegisterDescriptor);
 
-  const char* mnemonic = instruction_mnemonic_x86_64(context, inst);
-  const char* address = register_name(address_register);
-  const char* destination = register_name(destination_register);
+  const char *mnemonic = instruction_mnemonic_x86_64(context, inst);
+  const char *address = register_name(address_register);
+  const char *destination = register_name(destination_register);
 
-    switch (context->dialect) {
+  switch (context->dialect) {
     case CG_ASM_DIALECT_ATT:
-        fprintf(context->code, "%s %s(%%%s), %%%s\n", mnemonic, name, address, destination);
-        break;
+      fprintf(context->code, "%s %s(%%%s), %%%s\n",
+          mnemonic, name, address, destination);
+      break;
     case CG_ASM_DIALECT_INTEL:
-        fprintf(context->code, "%s %s, [%s + %s]\n", mnemonic, destination, address, name);
-        break;
+      fprintf(context->code, "%s %s, [%s + %s]\n",
+          mnemonic, destination, address, name);
+      break;
     default: panic("ERROR: femit_x86_64_name_to_reg(): Unsupported dialect %d", context->dialect);
-    }
+  }
 }
 
-static void femit_x86_64_reg_to_mem(CodegenContext* context, enum Instructions_x86_64 inst, va_list args) {
-  RegisterDescriptor source_register = va_arg(args, RegisterDescriptor);
-  RegisterDescriptor address_register = va_arg(args, RegisterDescriptor);
-  int64_t offset = va_arg(args, int64_t);
+static void femit_x86_64_reg_to_mem(CodegenContext *context, enum Instructions_x86_64 inst, va_list args) {
+  RegisterDescriptor source_register   = va_arg(args, RegisterDescriptor);
+  RegisterDescriptor address_register  = va_arg(args, RegisterDescriptor);
+  int64_t offset                       = va_arg(args, int64_t);
 
-  const char* mnemonic = instruction_mnemonic_x86_64(context, inst);
-  const char* source = register_name(source_register);
-  const char* address = register_name(address_register);
+  const char *mnemonic = instruction_mnemonic_x86_64(context, inst);
+  const char *source = register_name(source_register);
+  const char *address = register_name(address_register);
 
   switch (context->dialect) {
     case CG_ASM_DIALECT_ATT:
       if (offset) {
-            fprintf(context->code, "%s %%%s, %" PRId64 "(%%%s)\n", mnemonic, source, offset, address);
+        fprintf(context->code, "%s %%%s, %" PRId64 "(%%%s)\n",
+                mnemonic, source, offset, address);
       } else {
-            fprintf(context->code, "%s %%%s, (%%%s)\n", mnemonic, source, address);
+        fprintf(context->code, "%s %%%s, (%%%s)\n",
+                mnemonic, source, address);
       }
       break;
     case CG_ASM_DIALECT_INTEL:
       if (offset) {
-        fprintf(context->code, "%s [%s + %" PRId64 "], %s\n", mnemonic, address, offset, source);
+        fprintf(context->code, "%s [%s + %" PRId64 "], %s\n",
+                mnemonic, address, offset, source);
       } else {
-        fprintf(context->code, "%s [%s], %s\n", mnemonic, address, source);
+        fprintf(context->code, "%s [%s], %s\n",
+                mnemonic, address, source);
       }
       break;
     default: panic("ERROR: femit_x86_64_reg_to_mem(): Unsupported dialect %d", context->dialect);
   }
 }
 
-static void femit_x86_64_reg_to_reg(CodegenContext* context, enum Instructions_x86_64 inst, va_list args) {
-  RegisterDescriptor source_register = va_arg(args, RegisterDescriptor);
-  RegisterDescriptor destination_register = va_arg(args, RegisterDescriptor);
+static void femit_x86_64_reg_to_reg(CodegenContext *context, enum Instructions_x86_64 inst, va_list args) {
+  RegisterDescriptor source_register       = va_arg(args, RegisterDescriptor);
+  RegisterDescriptor destination_register  = va_arg(args, RegisterDescriptor);
 
-  const char* mnemonic = instruction_mnemonic_x86_64(context, inst);
-  const char* source = register_name(source_register);
-  const char* destination = register_name(destination_register);
+  const char *mnemonic = instruction_mnemonic_x86_64(context, inst);
+  const char *source = register_name(source_register);
+  const char *destination = register_name(destination_register);
 
   // Optimise away moves from a register to itself
   if (inst == I_MOV && source_register == destination_register) return;
 
   switch (context->dialect) {
-  case CG_ASM_DIALECT_ATT:
-      fprintf(context->code, "%s %%%s, %%%s\n", mnemonic, source, destination);
+    case CG_ASM_DIALECT_ATT:
+      fprintf(context->code, "%s %%%s, %%%s\n",
+          mnemonic, source, destination);
       break;
-  case CG_ASM_DIALECT_INTEL:
-      fprintf(context->code, "%s %s, %s\n", mnemonic, destination, source);
+    case CG_ASM_DIALECT_INTEL:
+      fprintf(context->code, "%s %s, %s\n",
+          mnemonic, destination, source);
       break;
     default: panic("ERROR: femit_x86_64_reg_to_reg(): Unsupported dialect %d", context->dialect);
   }
 }
 
-static void femit_x86_64_reg_to_name(CodegenContext* context, enum Instructions_x86_64 inst, va_list args) {
-  RegisterDescriptor source_register = va_arg(args, RegisterDescriptor);
-  RegisterDescriptor address_register= va_arg(args, RegisterDescriptor);
-  char* name = va_arg(args, char*);
+static void femit_x86_64_reg_to_name(CodegenContext *context, enum Instructions_x86_64 inst, va_list args) {
+  RegisterDescriptor source_register  = va_arg(args, RegisterDescriptor);
+  RegisterDescriptor address_register      = va_arg(args, RegisterDescriptor);
+  char *name                               = va_arg(args, char *);
 
-  const char* mnemonic = instruction_mnemonic_x86_64(context, inst);
-  const char* source = register_name(source_register);
-  const char* address = register_name(address_register);
+  const char *mnemonic = instruction_mnemonic_x86_64(context, inst);
+  const char *source = register_name(source_register);
+  const char *address = register_name(address_register);
 
   switch (context->dialect) {
     case CG_ASM_DIALECT_ATT:
-      fprintf(context->code, "%s %%%s, %s(%%%s)\n", mnemonic, source, name, address);
+      fprintf(context->code, "%s %%%s, %s(%%%s)\n",
+          mnemonic, source, name, address);
       break;
     case CG_ASM_DIALECT_INTEL:
-      fprintf(context->code, "%s [%s + %s], %s\n", mnemonic, address, name, source);
+      fprintf(context->code, "%s [%s + %s], %s\n",
+          mnemonic, address, name, source);
       break;
     default: panic("ERROR: femit_x86_64_reg_to_name(): Unsupported dialect %d", context->dialect);
   }
@@ -676,7 +695,7 @@ CodegenContext *codegen_context_x86_64_mswin_create(CodegenContext *parent) {
     // "The x64 ABI considers the registers RAX, RCX, RDX, R8, R9, R10, R11, and XMM0-XMM5 volatile."
     // "The x64 ABI considers registers RBX, RBP, RDI, RSI, RSP, R12, R13, R14, R15, and XMM6-XMM15 nonvolatile."
     size_t number_of_scratch_registers = 7;
-    Register **scratch_registers = calloc(number_of_scratch_registers, sizeof(Register*));
+    Register **scratch_registers = calloc(number_of_scratch_registers, sizeof(Register *));
     scratch_registers[0] = registers + REG_RAX;
     scratch_registers[1] = registers + REG_RCX;
     scratch_registers[2] = registers + REG_RDX;
@@ -724,7 +743,7 @@ void codegen_context_x86_64_mswin_free(CodegenContext *ctx) {
     free(ctx->register_pool.scratch_registers);
     free(ctx->arch_data);
   }
-  // TODO: Free environment.
+  // TODO(sirraide): Free environment.
   free(ctx);
 }
 
@@ -966,7 +985,9 @@ void codegen_entry_point_x86_64(CodegenContext *cg_context) {
 void emit_instruction(CodegenContext *context, IRInstruction *instruction) {
   switch (instruction->type) {
   case IR_GLOBAL_ADDRESS:
-    femit_x86_64(context, I_LEA, NAME_TO_REGISTER, REG_RIP, instruction->value.name, instruction->result);
+    femit_x86_64(context, I_LEA, NAME_TO_REGISTER,
+                 REG_RIP, instruction->value.name,
+                 instruction->result);
     break;
   default:
     TODO("Handle IRType %d\n", instruction->type);
@@ -995,92 +1016,147 @@ void emit_function(CodegenContext *context, IRFunction *function) {
   emit_instruction(context, function->return_value);
 }
 
-void codegen_emit_x86_64(CodegenContext *context) {
-    // Generate global variables.
-    fprintf(context->code, "%s", ".section .data\n");
+static Register *argument_registers = NULL;
+static size_t argument_register_count = 0;
+static Register general[GENERAL_REGISTER_COUNT] = {
+  REG_RAX,
+  REG_RBX,
+  REG_RCX,
+  REG_RDX,
+  REG_RSI,
+  REG_RDI,
+  REG_R8,
+  REG_R9,
+  REG_R10,
+  REG_R11,
+  REG_R12,
+  REG_R13,
+  REG_R14,
+  REG_R15,
+};
 
-    Binding* var_it = context->parse_context->variables->bind;
-    Node* type_info = node_allocate();
-    while (var_it) {
-        Node* var_id = var_it->id;
-        Node* type_id = node_allocate();
-        *type_id = *var_it->value;
-        // Do not emit "external" typed variables.
-        // TODO: Probably should have external attribute rather than this nonsense!
-        if (strcmp(type_id->value.symbol, "external function") != 0) {
-            Error err = parse_get_type(context->parse_context, type_id, type_info);
-            if (err.type) {
-                print_node(type_id, 0);
-                print_error(err);
-                PANIC();
-            }
-            fprintf(context->code, "%s: .space %lld\n", var_id->value.symbol, type_info->children->value.integer);
+#define LINUX_ARGUMENT_REGISTER_COUNT 6
+static Register linux_argument_registers[LINUX_ARGUMENT_REGISTER_COUNT] = {
+  REG_RDI, REG_RSI, REG_RDX, REG_RCX, REG_R8, REG_R9
+};
+
+#define MSWIN_ARGUMENT_REGISTER_COUNT 4
+static Register mswin_argument_registers[MSWIN_ARGUMENT_REGISTER_COUNT] = {
+  REG_RCX, REG_RDX, REG_R8, REG_R9
+};
+
+static void lower(CodegenContext *context) {
+  ASSERT(argument_registers, "arch_x86_64 backend can not lower IR when argument registers have not been initialized.");
+  for (IRFunction *function = context->function;
+       function;
+       function = function->next
+       ) {
+    for (IRBlock *block = function->first;
+         block;
+         block = block->next
+         ) {
+      for (IRInstruction *instruction = block->instructions;
+           instruction;
+           instruction = instruction->next
+           ) {
+        switch (instruction->type) {
+        case IR_PARAMETER_REFERENCE:
+          if (instruction->value.immediate >= argument_register_count) {
+            TODO("arch_x86_64 doesn't yet support passing arguments on the stack, sorry.");
+          }
+
+          // Create instruction to save parameter on function entry onto stack from register.
+          IRInstruction *store = calloc(1, sizeof(IRInstruction));
+          ASSERT(store, "Could not allocate IRInstruction");
+          store->type = IR_LOCAL_STORE;
+
+          IRInstruction *register_instruction = calloc(1, sizeof(IRInstruction));
+          ASSERT(register_instruction, "Could not allocate IRInstruction");
+          register_instruction->type = IR_REGISTER;
+          register_instruction->result = argument_registers[instruction->value.immediate];
+
+          set_pair_and_mark(store, &store->value.pair, register_instruction, instruction);
+
+          insert_instruction_after(store, instruction);
+          insert_instruction_after(register_instruction, instruction);
+
+          // Overwrite current instruction to allocate space for parameter on stack.
+          instruction->type = IR_STACK_ALLOCATE;
+          // TODO: Size here be dictated by size of type of parameter.
+          // We would first have to know which function we are within,
+          // that way we can lookup the parameters, that way we can
+          // lookup the type of the parameter
+          // (based on parameter index). Basically, lots of environment
+          // lookups.
+          instruction->value.immediate = 8;
+          break;
+        default:
+          break;
         }
-        var_it = var_it->next;
+      }
     }
-    free(type_info);
+  }
+}
 
-  // TODO: Fixup parameter references (spill to stack every time for
-  // now). This converts parameters into local variables, which makes
-  // life 1000% easier.
-
-  // TODO: Setup register allocation strucutres and allocate registers
-  // to each temporary within the program.
-
-  Register general[GENERAL_REGISTER_COUNT] = {
-    REG_RAX,
-    REG_RBX,
-    REG_RCX,
-    REG_RDX,
-    REG_RSI,
-    REG_RDI,
-    REG_R8,
-    REG_R9,
-    REG_R10,
-    REG_R11,
-    REG_R12,
-    REG_R13,
-    REG_R14,
-    REG_R15,
-  };
-
-  Register* argument_registers = NULL;
-  size_t argument_register_count = 0;
-
-#define LINUX_ARGUMENT_REGISTERS_COUNT 6
-  Register linux_argument_registers[LINUX_ARGUMENT_REGISTERS_COUNT] = {
-      REG_RDI, REG_RSI, REG_RDX, REG_RCX, REG_R8, REG_R9
-  };
-
-#define MSWIN_ARGUMENT_REGISTERS_COUNT 4
-  Register mswin_argument_registers[MSWIN_ARGUMENT_REGISTERS_COUNT] = {
-      REG_RCX, REG_RDX, REG_R8, REG_R9
-  };
-
+void codegen_emit_x86_64(CodegenContext *context) {
+  // Setup register allocation structures.
   switch (context->call_convention) {
-    case CG_CALL_CONV_LINUX:
-      argument_register_count = LINUX_ARGUMENT_REGISTERS_COUNT;
-      argument_registers = linux_argument_registers;
-      break;
-    case CG_CALL_CONV_MSWIN:
-      argument_register_count = MSWIN_ARGUMENT_REGISTERS_COUNT;
-      argument_registers = mswin_argument_registers;
-      break;
-    case CG_CALL_CONV_COUNT:
-    default:
-      PANIC("Invalid call convention");
-      break;
+  case CG_CALL_CONV_LINUX:
+    argument_register_count = LINUX_ARGUMENT_REGISTER_COUNT;
+    argument_registers = linux_argument_registers;
+    break;
+  case CG_CALL_CONV_MSWIN:
+    argument_register_count = MSWIN_ARGUMENT_REGISTER_COUNT;
+    argument_registers = mswin_argument_registers;
+    break;
+  case CG_CALL_CONV_COUNT:
+  default:
+    PANIC("Invalid call convention.");
+    break;
   }
 
-  RegisterAllocationInfo *info = ra_allocate_info(context, REG_RAX, GENERAL_REGISTER_COUNT, general, argument_register_count, argument_registers);
+  // IR fixup for this specific backend.
+  lower(context);
+
+  // Generate global variables.
+  fprintf(context->code, "%s", ".section .data\n");
+
+  Binding *var_it = context->parse_context->variables->bind;
+  Node *type_info = node_allocate();
+  while (var_it) {
+    Node *var_id = var_it->id;
+    Node *type_id = node_allocate();
+    *type_id = *var_it->value;
+    // Do not emit "external" typed variables.
+    // TODO: Probably should have external attribute rather than this nonsense!
+    if (strcmp(type_id->value.symbol, "external function") != 0) {
+      Error err = parse_get_type(context->parse_context, type_id, type_info);
+      if (err.type) {
+        print_node(type_id, 0);
+        print_error(err);
+        PANIC();
+      }
+      fprintf(context->code, "%s: .space %lld\n", var_id->value.symbol, type_info->children->value.integer);
+    }
+    var_it = var_it->next;
+  }
+  free(type_info);
+
+  // Allocate registers to each temporary within the program.
+  RegisterAllocationInfo *info = ra_allocate_info
+    (context,
+     REG_RAX,
+     GENERAL_REGISTER_COUNT,
+     general,
+     argument_register_count,
+     argument_registers
+     );
   ra(info);
 
   ir_set_ids(context);
   ir_femit(stdout, context);
 
-  for (IRFunction* function = context->all_functions; function; function = function->next) {
+  for (IRFunction *function = context->all_functions; function; function = function->next) {
     emit_function(context, function);
   }
-
-  TODO("Emit code based on intermediate representation in context.");
 }
