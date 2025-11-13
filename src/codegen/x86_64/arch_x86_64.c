@@ -743,7 +743,7 @@ void codegen_context_x86_64_mswin_free(CodegenContext *ctx) {
     free(ctx->register_pool.scratch_registers);
     free(ctx->arch_data);
   }
-  // TODO(sirraide): Free environment.
+  // TODO: Free environment.
   free(ctx);
 }
 
@@ -952,10 +952,10 @@ void codegen_stack_allocate_x86_64(CodegenContext *cg_context, long long int siz
 }
 
 /// Emit the function prologue.
-void codegen_prologue_x86_64(CodegenContext *cg_context) {
+void codegen_prologue_x86_64(CodegenContext *cg_context, int64_t locals_offset) {
   femit_x86_64(cg_context, I_PUSH, REGISTER, REG_RBP);
   femit_x86_64(cg_context, I_MOV, REGISTER_TO_REGISTER, REG_RSP, REG_RBP);
-  femit_x86_64(cg_context, I_SUB, IMMEDIATE_TO_REGISTER, (int64_t)-cg_context->locals_offset, REG_RSP);
+  femit_x86_64(cg_context, I_SUB, IMMEDIATE_TO_REGISTER, locals_offset, REG_RSP);
 }
 
 /// Emit the function epilogue.
@@ -970,33 +970,82 @@ void codegen_set_return_value_x86_64(CodegenContext *cg_context, RegisterDescrip
   femit_x86_64(cg_context, I_MOV, REGISTER_TO_REGISTER, value, REG_RAX);
 }
 
-/// Emit the entry point of the program.
-void codegen_entry_point_x86_64(CodegenContext *cg_context) {
-  fprintf(cg_context->code,
-      "%s"
-      ".section .text\n"
-      ".global main\n"
-      "main:\n",
-      cg_context->dialect == CG_ASM_DIALECT_INTEL ? ".intel_syntax noprefix\n" : "");
-  codegen_prologue_x86_64(cg_context);
-}
-
-
 void emit_instruction(CodegenContext *context, IRInstruction *instruction) {
   switch (instruction->type) {
+  case IR_PHI:
+  case IR_STACK_ALLOCATE:
+  case IR_REGISTER:
+    break;
+  case IR_IMMEDIATE:
+    femit_x86_64(context, I_MOV, IMMEDIATE_TO_REGISTER, instruction->value.immediate, instruction->result);
+    break;
+  case IR_COPY:
+    femit_x86_64(context, I_MOV, REGISTER_TO_REGISTER, instruction->value.reference->result, instruction->result);
+    break;
   case IR_GLOBAL_ADDRESS:
-    femit_x86_64(context, I_LEA, NAME_TO_REGISTER,
-                 REG_RIP, instruction->value.name,
-                 instruction->result);
+      femit_x86_64(context, I_LEA, NAME_TO_REGISTER,
+                  REG_RIP, instruction->value.name,
+                  instruction->result);
+    break;
+  case IR_GLOBAL_STORE:
+    femit_x86_64(context, I_MOV, REGISTER_TO_NAME,
+                 instruction->value.global_assignment.new_value->result,
+                 REG_RIP, instruction->value.global_assignment.name);
+    break;
+    case IR_GLOBAL_LOAD:
+      femit_x86_64(context, I_MOV, NAME_TO_REGISTER,
+                 REG_RIP, instruction->value.name, instruction->result);
+    break;
+  case IR_LOCAL_STORE:
+    femit_x86_64(context, I_MOV, REGISTER_TO_MEMORY,
+      instruction->value.pair.cdr->result, REG_RBP,
+      (int64_t)-instruction->value.pair.car->value.stack_allocation.offset);
+    break;
+  case IR_LOCAL_LOAD:
+    femit_x86_64(context, I_MOV, MEMORY_TO_REGISTER, REG_RBP, (int64_t)-instruction->value.reference->value.stack_allocation.offset, instruction->result);
+    break;
+  case IR_CALL:
+      if (instruction->value.call.type == IR_CALLTYPE_INDIRECT) {
+        femit_x86_64(context, I_CALL, REGISTER, instruction->value.call.value.callee->result);
+      } else {
+        femit_x86_64(context, I_CALL, NAME, instruction->value.call.value.name);
+      }
+    break;
+  case IR_RETURN:
+    femit_x86_64(context, I_RET);
+    break;
+  case IR_BRANCH:
+    // TODO: If jumping to new block, don't generate
+    femit_x86_64(context, I_JMP, NAME, instruction->value.block->name);
+    break;
+  case IR_BRANCH_CONDITIONAL:
+    femit_x86_64(context, I_TEST, REGISTER_TO_REGISTER,
+      instruction->value.conditional_branch.condition->result,
+      instruction->value.conditional_branch.condition->result);
+    femit_x86_64(context, I_JCC, JUMP_TYPE_Z, instruction->value.conditional_branch.false_branch->name);
+    femit_x86_64(context, I_JMP, NAME, instruction->value.conditional_branch.false_branch->name);
+    break;
+  case IR_COMPARISON:
+  codegen_comparison_x86_64(context, instruction->value.comparison.type,
+    instruction->value.comparison.pair.car->result,
+    instruction->value.comparison.pair.cdr->result,
+    instruction->result);
+    break;
+  case IR_SUBTRACT:
+    femit_x86_64(context, I_SUB, REGISTER_TO_REGISTER,
+      instruction->value.pair.cdr->result,
+      instruction->value.pair.car->result);
     break;
   default:
+    ir_femit_instruction(stderr, instruction);
     TODO("Handle IRType %d\n", instruction->type);
     break;
   }
 }
 
 void emit_block(CodegenContext *context, IRBlock *block) {
-  // TODO: Generate block label.
+  // Generate block label.
+  fprintf(context->code, "%s:\n", block->name);
   for (IRInstruction *instruction = block->instructions;
        instruction;
        instruction = instruction->next
@@ -1008,12 +1057,20 @@ void emit_block(CodegenContext *context, IRBlock *block) {
 }
 
 void emit_function(CodegenContext *context, IRFunction *function) {
-  // TODO: Generate function label.
+  // Generate function label.
+  // TODO: Maybe make some functions not global.
+  fprintf(context->code, ".global %s\n" "%s:\n", function->name, function->name);
+  codegen_prologue_x86_64(context, function->locals_total_size);
   for (IRBlock *block = function->first; block; block = block->next) {
     emit_block(context, block);
   }
+}
 
-  emit_instruction(context, function->return_value);
+void emit_entry(CodegenContext* context) {
+    fprintf(context->code,
+      "%s"
+      ".section .text\n",
+      context->dialect == CG_ASM_DIALECT_INTEL ? ".intel_syntax noprefix\n" : "");
 }
 
 static Register *argument_registers = NULL;
@@ -1055,13 +1112,20 @@ static void lower(CodegenContext *context) {
          block;
          block = block->next
          ) {
+          // If block does not have a name, give it one.
+          if (!block->name) {
+            // TODO: Heap allocate or something (UGHUGHUGH).
+            // We could also have a static buffer where we write the block
+            // id as a string to and then use that as a label all around.
+            block->name = label_generate();
+          }
       for (IRInstruction *instruction = block->instructions;
            instruction;
            instruction = instruction->next
            ) {
         switch (instruction->type) {
         case IR_PARAMETER_REFERENCE:
-          if (instruction->value.immediate >= argument_register_count) {
+          if (instruction->value.immediate >= (int64_t)argument_register_count) {
             TODO("arch_x86_64 doesn't yet support passing arguments on the stack, sorry.");
           }
 
@@ -1075,7 +1139,7 @@ static void lower(CodegenContext *context) {
           register_instruction->type = IR_REGISTER;
           register_instruction->result = argument_registers[instruction->value.immediate];
 
-          set_pair_and_mark(store, &store->value.pair, register_instruction, instruction);
+          set_pair_and_mark(store, &store->value.pair, instruction, register_instruction);
 
           insert_instruction_after(store, instruction);
           insert_instruction_after(register_instruction, instruction);
@@ -1088,13 +1152,41 @@ static void lower(CodegenContext *context) {
           // lookup the type of the parameter
           // (based on parameter index). Basically, lots of environment
           // lookups.
-          instruction->value.immediate = 8;
+          instruction->value.stack_allocation.size = 8;
           break;
         default:
           break;
         }
       }
     }
+  }
+}
+
+void calculate_stack_offsets(CodegenContext *context) {
+  for (IRFunction *function = context->function;
+       function;
+       function = function->next
+       ) {
+    size_t offset = 0;
+    for (IRBlock *block = function->first;
+         block;
+         block = block->next
+         ) {
+      for (IRInstruction *instruction = block->instructions;
+           instruction;
+           instruction = instruction->next
+           ) {
+        switch (instruction->type) {
+        case IR_STACK_ALLOCATE:
+          offset += instruction->value.stack_allocation.size;
+          instruction->value.stack_allocation.offset = offset;
+          break;
+        default:
+          break;
+        }
+      }
+    }
+    function->locals_total_size = offset;
   }
 }
 
@@ -1119,7 +1211,7 @@ void codegen_emit_x86_64(CodegenContext *context) {
   lower(context);
 
   // Generate global variables.
-  fprintf(context->code, "%s", ".section .data\n");
+  fprintf(context->code, ".section .data\n");
 
   Binding *var_it = context->parse_context->variables->bind;
   Node *type_info = node_allocate();
@@ -1156,6 +1248,10 @@ void codegen_emit_x86_64(CodegenContext *context) {
   ir_set_ids(context);
   ir_femit(stdout, context);
 
+  calculate_stack_offsets(context);
+
+  // TODO: Add entry only on entry function, not just the first one.
+  emit_entry(context);
   for (IRFunction *function = context->all_functions; function; function = function->next) {
     emit_function(context, function);
   }

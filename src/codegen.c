@@ -100,7 +100,7 @@ void codegen_context_free(CodegenContext *context) {
 char label_buffer[label_buffer_size];
 size_t label_index = 0;
 size_t label_count = 0;
-static char *label_generate() {
+char *label_generate() {
   char *label = label_buffer + label_index;
   label_index += snprintf(label, label_buffer_size - label_index,
                           ".L%zu", label_count);
@@ -155,7 +155,7 @@ SymbolAddress symbol_to_address(CodegenContext *cg_ctx, Node *symbol) {
     print_node(symbol,0);
     environment_print(*cg_ctx->locals, 0);
 
-    // FIXME(Sirraide): This is ugly. Should this be heap-allocated?
+    // FIXME: This is ugly. Should this be heap-allocated?
     //   Maybe we should have a way to store a heap allocated string in
     //   an `Error`? I would recommend either adding a flag indicating
     //   that the messages needs to be free()’d or just leaking the
@@ -363,14 +363,12 @@ Error codegen_expression
     }
 
     // Generate THEN expression body.
-    Node *last_expr = NULL;
     Node *expr = expression->children->next_child->children;
     while (expr) {
       err = codegen_expression(cg_context,
                                ctx, &next_child_ctx,
                                expr);
       if (err.type) { return err; }
-      last_expr = expr;
       expr = expr->next_child;
     }
 
@@ -385,7 +383,6 @@ Error codegen_expression
     // our context block.
     ir_block_attach(cg_context, otherwise_block);
 
-    last_expr = NULL;
     if (expression->children->next_child->next_child) {
 
       // Enter if otherwise body context
@@ -407,7 +404,6 @@ Error codegen_expression
                                  ctx, &next_child_ctx,
                                  expr);
         if (err.type) { return err; }
-        last_expr = expr;
         expr = expr->next_child;
       }
 
@@ -663,7 +659,7 @@ Error codegen_function
 
   cg_context = codegen_context_create(cg_context);
 
-  IRFunction *f = ir_function(cg_context);
+  IRFunction *f = ir_function(cg_context, name);
 
   // Store base pointer integer offset within locals environment
   // Start at one to make space for pushed RBP in function header.
@@ -681,10 +677,6 @@ Error codegen_function
 
     parameter = parameter->next_child;
   }
-
-  // TODO: REMOVE THIS!!!
-  // Function beginning label
-  fprintf(code, "%s:\n", name);
 
   // Function body
   ParsingContext *ctx = context;
@@ -724,7 +716,7 @@ Error codegen_function
 Error codegen_program(CodegenContext *context, Node *program) {
   Error err = ok;
 
-  IRFunction *main = ir_function(context);
+  IRFunction *main = ir_function(context, "main");
   context->all_functions = main;
 
   ParsingContext *next_child_context = context->parse_context->children;

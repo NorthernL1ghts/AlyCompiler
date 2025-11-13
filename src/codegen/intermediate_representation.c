@@ -422,8 +422,10 @@ IRFunction *ir_function_create() {
   return function;
 }
 
-IRFunction *ir_function(CodegenContext *context) {
+IRFunction *ir_function(CodegenContext *context, const char* name) {
   IRFunction *function = ir_function_create();
+  function->name = name;
+
   // A function *must* contain at least one block, so we start new
   // functions out with an empty block.
   IRBlock *block = ir_block_create();
