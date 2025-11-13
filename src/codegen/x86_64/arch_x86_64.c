@@ -55,6 +55,18 @@ DEFINE_REGISTER_NAME_LOOKUP_FUNCTION(register_name_8, 8)
 // TODO: This should probably be 13?
 #define GENERAL_REGISTER_COUNT 14
 
+static Register *caller_saved_registers = NULL;
+static size_t caller_saved_register_count = 0;
+
+char is_caller_saved(Register r) {
+  for (int i = 0; i < caller_saved_register_count; ++i) {
+    if (caller_saved_registers[i] == r) {
+      return 1;
+    }
+  }
+  return 0;
+}
+
 /// Types of conditional jump instructions (Jcc).
 /// Do NOT reorder these.
 enum IndirectJumpType_x86_64 {
@@ -1002,20 +1014,38 @@ void emit_instruction(CodegenContext *context, IRInstruction *instruction) {
       (int64_t)-instruction->value.pair.car->value.stack_allocation.offset);
     break;
   case IR_LOCAL_LOAD:
-    femit_x86_64(context, I_MOV, MEMORY_TO_REGISTER, REG_RBP, (int64_t)-instruction->value.reference->value.stack_allocation.offset, instruction->result);
+    femit_x86_64(context, I_MOV, MEMORY_TO_REGISTER, REG_RBP,
+      (int64_t)-instruction->value.reference->value.stack_allocation.offset, instruction->result);
     break;
   case IR_CALL:
+    if (0) {}
+      // Save caller saved registers used in caller function
+      ASSERT(instruction->block, "call instruction NULL block");
+      ir_femit_block(stderr, instruction->block);
+      ASSERT(instruction->block->function, "block has NULL function");
+      int64_t func_regs = instruction->block->function->registers_in_use;
+      for (int i = 1; i < sizeof(func_regs) * 8; ++i) {
+        if (is_caller_saved(i)) {
+          femit_x86_64(context, I_PUSH, REGISTER, i);
+        }
+      }
       if (instruction->value.call.type == IR_CALLTYPE_INDIRECT) {
         femit_x86_64(context, I_CALL, REGISTER, instruction->value.call.value.callee->result);
       } else {
         femit_x86_64(context, I_CALL, NAME, instruction->value.call.value.name);
+      }
+      // Restore all caller saved registers when calling external function.
+      for (int i = sizeof(func_regs) * 8 - 1; i; --i) {
+        if (func_regs & (1 << i) &&is_caller_saved(i)) {
+          femit_x86_64(context, I_POP, REGISTER, i);
+        }
       }
     break;
   case IR_RETURN:
     femit_x86_64(context, I_RET);
     break;
   case IR_BRANCH:
-    // TODO: If jumping to new block, don't generate
+    // TODO:If jumping to new block, don't generate
     femit_x86_64(context, I_JMP, NAME, instruction->value.block->name);
     break;
   case IR_BRANCH_CONDITIONAL:
@@ -1100,6 +1130,16 @@ static Register linux_argument_registers[LINUX_ARGUMENT_REGISTER_COUNT] = {
 #define MSWIN_ARGUMENT_REGISTER_COUNT 4
 static Register mswin_argument_registers[MSWIN_ARGUMENT_REGISTER_COUNT] = {
   REG_RCX, REG_RDX, REG_R8, REG_R9
+};
+
+#define MSWIN_CALLER_SAVED_REGISTER_COUNT 7
+static Register mswin_caller_saved_registers[MSWIN_CALLER_SAVED_REGISTER_COUNT] = {
+  REG_RAX, REG_RCX, REG_RDX, REG_R8, REG_R9, REG_R10, REG_R11
+};
+
+#define LINUX_CALLER_SAVED_REGISTER_COUNT 9
+static Register linux_caller_saved_registers[LINUX_CALLER_SAVED_REGISTER_COUNT] = {
+  REG_RAX, REG_RCX, REG_RDX, REG_R8, REG_R9, REG_R10, REG_R11, REG_RSI, REG_RDI
 };
 
 static void lower(CodegenContext *context) {
@@ -1194,10 +1234,14 @@ void codegen_emit_x86_64(CodegenContext *context) {
   // Setup register allocation structures.
   switch (context->call_convention) {
   case CG_CALL_CONV_LINUX:
+    caller_saved_register_count = LINUX_CALLER_SAVED_REGISTER_COUNT;
+    caller_saved_registers = linux_argument_registers;
     argument_register_count = LINUX_ARGUMENT_REGISTER_COUNT;
     argument_registers = linux_argument_registers;
     break;
   case CG_CALL_CONV_MSWIN:
+    caller_saved_register_count = MSWIN_CALLER_SAVED_REGISTER_COUNT;
+    caller_saved_registers = mswin_argument_registers;
     argument_register_count = MSWIN_ARGUMENT_REGISTER_COUNT;
     argument_registers = mswin_argument_registers;
     break;

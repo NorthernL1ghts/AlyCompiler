@@ -88,8 +88,7 @@ void phi2copy(RegisterAllocationInfo *info) {
               ir_insert_into_block(critical_edge_trampoline, copy);
               ir_branch_into_block(instruction->block, critical_edge_trampoline);
 
-              ASSERT(critical_edge_trampoline->branch, "branch null");
-              ASSERT(critical_edge_trampoline, "HERE");
+              ASSERT(critical_edge_trampoline->branch, "branch NULL");
 
               ir_block_attach_to_function(instruction->block->function, critical_edge_trampoline);
               if (argument->block->branch->value.conditional_branch.true_branch == instruction->block) {
@@ -876,6 +875,27 @@ void color
   }
 }
 
+// Keep track of what registers are used in each function.
+void track_registers(RegisterAllocationInfo* info) {
+ for (IRFunction *function = info->context->function;
+       function;
+       function = function->next
+       ) {
+    int64_t register_mask = 0;
+    for (IRBlock *block = function->first;
+         block;
+         block = block->next
+         ) {
+      for (IRInstruction *instruction = block->instructions;
+           instruction;
+           instruction = instruction->next
+           ) {
+        function->registers_in_use |= 1 << instruction->result;
+      }
+    }
+  }
+}
+
 void ra(RegisterAllocationInfo *info) {
   if (!info) { return; }
 
@@ -916,4 +936,6 @@ void ra(RegisterAllocationInfo *info) {
   PRINT_INSTRUCTION_LIST(instructions);
 
   IR_FEMIT(stdout, info->context);
+
+  track_registers(info);
 }

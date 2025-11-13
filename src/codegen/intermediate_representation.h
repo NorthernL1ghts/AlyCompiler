@@ -205,6 +205,8 @@ typedef struct IRFunction {
 
   // Used by certain backends.
   size_t locals_total_size;
+
+  int64_t registers_in_use;
 } IRFunction;
 
 void ir_set_ids(CodegenContext *context);
