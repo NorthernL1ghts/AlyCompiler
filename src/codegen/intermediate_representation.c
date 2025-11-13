@@ -441,6 +441,8 @@ IRFunction *ir_function(CodegenContext *context, const char* name) {
   function->last = block;
   context->block = block;
 
+  block->function = function;
+
   return function;
 }
 
