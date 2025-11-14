@@ -1,4 +1,4 @@
-﻿#include <environment.h>
+#include <environment.h>
 
 #include <stddef.h>
 #include <stdio.h>
@@ -22,7 +22,7 @@ void environment_print(Environment env, long long indent) {
             printf("%s\n", node_text(value_iterator));
             value_iterator = value_iterator->next_child;
         }
-        binding_it = binding_it->next;
+    binding_it = binding_it->next;
     }
 }
 

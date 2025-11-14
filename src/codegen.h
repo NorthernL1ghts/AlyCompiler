@@ -12,19 +12,19 @@ char *label_generate();
 
 CodegenContext* codegen_context_create_top_level
 (ParsingContext* parse_context,
- enum CodegenOutputFormat format,
- enum CodegenCallingConvention call_convention,
- enum CodegenAssemblyDialect dialect,
- FILE* code);
+enum CodegenOutputFormat format,
+enum CodegenCallingConvention call_convention,
+enum CodegenAssemblyDialect dialect,
+FILE* code);
 
 CodegenContext* codegen_context_create(CodegenContext* parent);
 void codegen_context_free(CodegenContext* context);
 
 struct Register {
-  /// If non-zero, this register is in use.
-  char in_use;
-  /// Identifies a register uniquely.
-  RegisterDescriptor descriptor;
+    /// If non-zero, this register is in use.
+    char in_use;
+    /// Identifies a register uniquely.
+    RegisterDescriptor descriptor;
 };
 
 /// Architecture-specific register information.
@@ -63,10 +63,10 @@ extern char codegen_verbose;
 
 Error codegen
 (enum CodegenOutputFormat,
- enum CodegenCallingConvention,
- enum CodegenAssemblyDialect,
- char* output_filepath,
- ParsingContext* context,
- Node* program);
+enum CodegenCallingConvention,
+enum CodegenAssemblyDialect,
+char* output_filepath,
+ParsingContext* context,
+Node* program);
 
 #endif /* ALY_COMPILER_CODEGEN_H */

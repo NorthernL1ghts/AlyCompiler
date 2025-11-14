@@ -1,4 +1,4 @@
-﻿#include <file_io.h>
+#include <file_io.h>
 
 #include <error.h>
 #include <errno.h>

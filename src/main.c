@@ -1,4 +1,4 @@
-﻿#include <stdio.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -12,17 +12,17 @@
 void print_usage(char** argv) {
     printf("\nUSAGE: %s [FLAGS] [OPTIONS] <path to file to compile>\n", argv[0]);
     printf("Flags:\n"
-           "   `-h`, `--help`    :: Show this help and usage information.\n"
-           "   `--formats`       :: List acceptable output formats.\n"
-           "   `--callings`      :: List acceptable calling conventions.\n"
-           "   `--dialects`      :: List acceptable assembly dialects.\n"
-           "   `-v`, `--verbose` :: Print out more information.\n");
+            "   `-h`, `--help`    :: Show this help and usage information.\n"
+            "   `--formats`       :: List acceptable output formats.\n"
+            "   `--callings`      :: List acceptable calling conventions.\n"
+            "   `--dialects`      :: List acceptable assembly dialects.\n"
+            "   `-v`, `--verbose` :: Print out more information.\n");
     printf("Options:\n"
-           "    `-o`, `--output`   :: Set the output filepath to the one given.\n"
-           "    `-f`, `--format`   :: Set the output format to the one given.\n"
-           "    `-cc`, `--calling` :: Set the calling convention to the one given.\n"
-           "    `-d`, `--dialect`   :: Set the output assembly dialect to the one given.\n"
-           "Anything other arguments are treated as input filepaths (source code).\n");
+            "    `-o`, `--output`   :: Set the output filepath to the one given.\n"
+            "    `-f`, `--format`   :: Set the output format to the one given.\n"
+            "    `-cc`, `--calling` :: Set the calling convention to the one given.\n"
+            "    `-d`, `--dialect`   :: Set the output assembly dialect to the one given.\n"
+            "Anything other arguments are treated as input filepaths (source code).\n");
 }
 
 int input_filepath_index = -1;
@@ -34,22 +34,22 @@ int verbosity = 0;
 
 void print_acceptable_formats() {
     printf("Acceptable formats include:\n"
-           " -> default\n"
-           " -> x86_64_gas\n");
+            " -> default\n"
+            " -> x86_64_gas\n");
 }
 
 void print_acceptable_calling_conventions() {
     printf("Acceptable calling conventions include:\n"
-           " -> default\n"
-           " -> LINUX\n"
-           " -> MSWIN\n");
+            " -> default\n"
+            " -> LINUX\n"
+            " -> MSWIN\n");
 }
 
 void print_acceptable_asm_dialects() {
     printf("Acceptable dialects include:\n"
-           " -> default\n"
-           " -> att\n"
-           " -> intel\n");
+            " -> default\n"
+            " -> att\n"
+            " -> intel\n");
 }
 
 /// @return Zero if everything goes well, otherwise return non-zero value.
@@ -77,11 +77,11 @@ int handle_command_line_arguments(int argc, char** argv) {
             exit(0);
         }
         else if (strcmp(argument, "-v") == 0
-                 || strcmp(argument, "--verbose") == 0) {
+                    || strcmp(argument, "--verbose") == 0) {
             verbosity = 1;
         }
         else if (strcmp(argument, "-o") == 0
-                 || strcmp(argument, "--output") == 0) {
+                    || strcmp(argument, "--output") == 0) {
             i++;
             if (i >= argc) {
                 panic("ERROR: Expected filepath after output command line argument");
@@ -90,21 +90,21 @@ int handle_command_line_arguments(int argc, char** argv) {
             //        check that it isn't a valid filepath with fopen or something.
             if (*argv[i] == '-') {
                 panic("ERROR: Expected filepath after output command line argument\n"
-                      "Instead, got what looks like another command line argument.\n"
-                      " -> \"%s\"", argv[i]);
+                        "Instead, got what looks like another command line argument.\n"
+                        " -> \"%s\"", argv[i]);
             }
             output_filepath_index = i;
         }
         else if (strcmp(argument, "-f") == 0
-                 || strcmp(argument, "--format") == 0) {
+                    || strcmp(argument, "--format") == 0) {
             i++;
             if (i >= argc) {
                 panic("ERROR: Expected format after format command line argument");
             }
             if (*argv[i] == '-') {
                 panic("ERROR: Expected format after format command line argument\n"
-                      "Instead, got what looks like another command line argument.\n"
-                      " -> \"%s\"", argv[i]);
+                        "Instead, got what looks like another command line argument.\n"
+                        " -> \"%s\"", argv[i]);
             }
             if (strcmp(argv[i], "default") == 0) {
                 output_format = CG_FMT_DEFAULT;
@@ -114,21 +114,21 @@ int handle_command_line_arguments(int argc, char** argv) {
             }
             else {
                 printf("ERROR: Expected format after format command line argument\n"
-                       "Instead, got an unrecognized format: \"%s\".\n", argv[i]);
+                        "Instead, got an unrecognized format: \"%s\".\n", argv[i]);
                 print_acceptable_formats();
                 return 1;
             }
         }
         else if (strcmp(argument, "-cc") == 0
-                 || strcmp(argument, "--calling") == 0) {
+                    || strcmp(argument, "--calling") == 0) {
             i++;
             if (i >= argc) {
                 panic("ERROR: Expected calling convention after format command line argument");
             }
             if (*argv[i] == '-') {
                 panic("ERROR: Expected calling convention after format command line argument\n"
-                      "Instead, got what looks like another command line argument.\n"
-                      " -> \"%s\"", argv[i]);
+                        "Instead, got what looks like another command line argument.\n"
+                        " -> \"%s\"", argv[i]);
             }
             if (strcmp(argv[i], "default") == 0) {
                 output_calling_convention = CG_CALL_CONV_DEFAULT;
@@ -141,21 +141,21 @@ int handle_command_line_arguments(int argc, char** argv) {
             }
             else {
                 printf("ERROR: Expected calling convention after calling convention command line argument\n"
-                       "Instead, got an unrecognized format: \"%s\".\n", argv[i]);
+                        "Instead, got an unrecognized format: \"%s\".\n", argv[i]);
                 print_acceptable_calling_conventions();
                 return 1;
             }
         }
         else if (strcmp(argument, "-d") == 0
-                 || strcmp(argument, "--dialect") == 0) {
+                    || strcmp(argument, "--dialect") == 0) {
             i++;
             if (i >= argc) {
                 panic("ERROR: Expected assembly dialect after format command line argument");
             }
             if (*argv[i] == '-') {
                 panic("ERROR: Expected assembly dialect after format command line argument\n"
-                      "Instead, got what looks like another command line argument.\n"
-                      " -> \"%s\"", argv[i]);
+                        "Instead, got what looks like another command line argument.\n"
+                        " -> \"%s\"", argv[i]);
             }
             if (strcmp(argv[i], "default") == 0) {
                 output_assembly_dialect = CG_ASM_DIALECT_DEFAULT;
@@ -168,27 +168,27 @@ int handle_command_line_arguments(int argc, char** argv) {
             }
             else {
                 printf("ERROR: Expected assembly dialect after calling convention command line argument\n"
-                       "Instead, got an unrecognized format: \"%s\".\n", argv[i]);
+                        "Instead, got an unrecognized format: \"%s\".\n", argv[i]);
                 print_acceptable_asm_dialects();
                 return 1;
             }
         }
         else if (strcmp(argument, "--aluminium") == 0) {
-#     if defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__)
+    #     if defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__)
             // Windows
             system("start https://www.youtube.com/watch?v=dQw4w9WgXcQ");
-#     elif __APPLE__
+    #     elif __APPLE__
             // Apple (iOS, OS X, watchOS...)
             system("open https://www.youtube.com/watch?v=dQw4w9WgXcQ");
-#     elif __linux__ || __unix__
+    #     elif __linux__ || __unix__
             // Linux or unix-based
             system("xdg-open https://www.youtube.com/watch?v=dQw4w9WgXcQ");
-#     endif
+    #     endif
         }
         else {
             if (input_filepath_index != -1) {
                 printf("ERROR: Only a single input filepath is used, but multiple were given.\n"
-                       "Using the latest one.\n");
+                        "Using the latest one.\n");
             }
             input_filepath_index = i;
         }

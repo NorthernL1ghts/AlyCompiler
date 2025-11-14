@@ -1,4 +1,4 @@
-﻿#ifndef ALY_COMPILER_ENVIRONMENT_H
+#ifndef ALY_COMPILER_ENVIRONMENT_H
 #define ALY_COMPILER_ENVIRONMENT_H
 
 typedef struct Node Node;
@@ -7,15 +7,15 @@ typedef struct Node Node;
 // |-- API to create new Binding.
 // `-- API to add Binding to environment.
 typedef struct Binding {
-	Node* id;
-	Node* value;
-	struct Binding* next;
+    Node* id;
+    Node* value;
+    struct Binding* next;
 } Binding;
 
 // TODO: API to create new Environment.
 typedef struct Environment {
-	struct Environment* parent;
-	Binding* bind;
+    struct Environment* parent;
+    Binding* bind;
 } Environment;
 
 void environment_print(Environment env, long long indent);

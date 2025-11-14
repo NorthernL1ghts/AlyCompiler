@@ -18,11 +18,11 @@ typedef struct RegisterAllocationInfo {
 
 RegisterAllocationInfo* ra_allocate_info
 (CodegenContext* context,
-    Register result_register,
-    size_t general_registers_count,
-    Register* general_registers,
-    size_t argument_registers_count,
-    Register* argument_registers
+Register result_register,
+size_t general_registers_count,
+Register* general_registers,
+size_t argument_registers_count,
+Register* argument_registers
 );
 
 void ra(RegisterAllocationInfo* info);

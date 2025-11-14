@@ -1,4 +1,4 @@
-﻿#include <error.h>
+#include <error.h>
 #include <stdarg.h>
 #include <stddef.h>
 #include <stdio.h>
@@ -63,12 +63,12 @@ void panic_with_code(int code, const char* fmt, ...) {
 }
 
 void assert_impl(
-    const char* file,
-    const char* func,
-    int line,
-    const char* condition,
-    const char* fmt,
-    ...
+const char* file,
+const char* func,
+int line,
+const char* condition,
+const char* fmt,
+...
 ) {
     /// Prettier file name
 #ifndef _MSC_VER
