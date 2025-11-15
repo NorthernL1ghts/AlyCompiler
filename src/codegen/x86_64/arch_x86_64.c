@@ -994,7 +994,6 @@ void emit_instruction(CodegenContext *context, IRInstruction *instruction) {
     break;
     case IR_RETURN:
         codegen_epilogue_x86_64(context);
-        femit_x86_64(context, I_RET);
         break;
     case IR_BRANCH:
         // TODO:If jumping to new block, don't generate
@@ -1032,6 +1031,70 @@ void emit_instruction(CodegenContext *context, IRInstruction *instruction) {
                 instruction->value.pair.car->result,
                 instruction->result);
         }
+     case IR_MULTIPLY:
+        femit_x86_64(context, I_IMUL, REGISTER_TO_REGISTER,
+                    instruction->value.pair.car->result,
+                    instruction->value.pair.cdr->result);
+        femit_x86_64(context, I_MOV, REGISTER_TO_REGISTER,
+                    instruction->value.pair.car->result,
+                    instruction->result);
+        break;
+  case IR_DIVIDE:
+        ASSERT(instruction->value.pair.cdr->result != REG_RAX,
+            "Register allocation must not allocate RAX to divisor");
+        femit_x86_64(context, I_MOV, REGISTER_TO_REGISTER,
+                    instruction->value.pair.car->result,
+                    REG_RAX);
+
+        femit_x86_64(context, I_CQO);
+        femit_x86_64(context, I_IDIV, REGISTER,
+                    instruction->value.pair.cdr->result);
+        femit_x86_64(context, I_MOV, REGISTER_TO_REGISTER,
+                    REG_RAX,
+                    instruction->result);
+        break;
+  case IR_MODULO:
+        ASSERT(instruction->value.pair.cdr->result != REG_RAX,
+            "Register allocation must not allocate RAX to divisor");
+        femit_x86_64(context, I_MOV, REGISTER_TO_REGISTER,
+                    instruction->value.pair.car->result,
+                    REG_RAX);
+        femit_x86_64(context, I_CQO);
+        femit_x86_64(context, I_IDIV, REGISTER,
+                    instruction->value.pair.cdr->result);
+        femit_x86_64(context, I_MOV, REGISTER_TO_REGISTER,
+                    REG_RDX,
+                    instruction->result);
+        break;
+  case IR_SHIFT_LEFT:
+        femit_x86_64(context, I_MOV, REGISTER_TO_REGISTER,
+                    instruction->value.pair.cdr->result,
+                    REG_RCX);
+        femit_x86_64(context, I_SHL, REGISTER,
+                    instruction->value.pair.car->result);
+        femit_x86_64(context, I_MOV, REGISTER_TO_REGISTER,
+                    instruction->value.pair.car->result,
+                    instruction->result);
+        break;
+  case IR_SHIFT_RIGHT_LOGICAL:
+        femit_x86_64(context, I_MOV, REGISTER_TO_REGISTER,
+                    instruction->value.pair.cdr->result,
+                    REG_RCX);
+        femit_x86_64(context, I_SHR, REGISTER,
+                    instruction->value.pair.car->result);
+        femit_x86_64(context, I_MOV, REGISTER_TO_REGISTER,
+                    instruction->value.pair.car->result,
+                    instruction->result);
+        break;
+  case IR_SHIFT_RIGHT_ARITHMETIC:
+        femit_x86_64(context, I_MOV, REGISTER_TO_REGISTER,
+                    instruction->value.pair.cdr->result,
+                    REG_RCX);
+        femit_x86_64(context, I_SAR, REGISTER,
+                    instruction->value.pair.car->result);
+        femit_x86_64(context, I_MOV, REGISTER_TO_REGISTER,
+                    instruction->value.pair.car->result,
+                    instruction->result);
         break;
     default:
         ir_femit_instruction(stderr, instruction);
@@ -1175,6 +1238,27 @@ void calculate_stack_offsets(CodegenContext *context) {
     }
 }
 
+int64_t x86_64_instruction_interference(IRInstruction* instruction) {
+    ASSERT(instruction, "Can not get register interference of NULL instruction.");
+    int64_t mask = 0;
+    switch (instruction->type) {
+    case IR_SHIFT_LEFT:
+    case IR_SHIFT_RIGHT_ARITHMETIC:
+    case IR_SHIFT_RIGHT_LOGICAL:
+        mask |= (1 << REG_RCX);
+        break;
+    case IR_DIVIDE:
+    case IR_MODULO:
+        mask |= (1 << REG_RAX);
+        mask |= (1 << REG_RDX);
+        break;
+    default:
+        break;
+    }
+    // Shift mask right because it doesn't include REG_NONE
+    return mask >> 1;
+}
+
 void codegen_emit_x86_64(CodegenContext *context) {
     // Setup register allocation structures.
     switch (context->call_convention) {
@@ -1224,7 +1308,8 @@ void codegen_emit_x86_64(CodegenContext *context) {
     free(type_info);
 
     // Allocate registers to each temporary within the program.
-    RegisterAllocationInfo *info = ra_allocate_info(context, REG_RAX, GENERAL_REGISTER_COUNT, general, argument_register_count, argument_registers);
+    RegisterAllocationInfo *info = ra_allocate_info
+    (context, REG_RAX, GENERAL_REGISTER_COUNT, general, argument_register_count, argument_registers, x86_64_instruction_interference);
     ra(info);
 
     ir_set_ids(context);

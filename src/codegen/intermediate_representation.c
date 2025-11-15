@@ -180,7 +180,32 @@ IRInstruction *instruction
         fprintf(file, "add %%%zu, %%%zu",
                 instruction->value.pair.car->id,
                 instruction->value.pair.cdr->id);
-    break;
+        break;
+    case IR_MULTIPLY:
+        fprintf(file, "mul %%%zu, %%%zu",
+                instruction->value.pair.car->id,
+                instruction->value.pair.cdr->id);
+        break;
+  case IR_DIVIDE:
+        fprintf(file, "div %%%zu, %%%zu",
+                instruction->value.pair.car->id,
+                instruction->value.pair.cdr->id);
+        break;
+  case IR_MODULO:
+        fprintf(file, "mod %%%zu, %%%zu",
+                instruction->value.pair.car->id,
+                instruction->value.pair.cdr->id);
+        break;
+  case IR_SHIFT_LEFT:
+        fprintf(file, "shl %%%zu, %%%zu",
+                instruction->value.pair.car->id,
+                instruction->value.pair.cdr->id);
+        break;
+  case IR_SHIFT_RIGHT_ARITHMETIC:
+        fprintf(file, "sar %%%zu, %%%zu",
+                instruction->value.pair.car->id,
+                instruction->value.pair.cdr->id);
+        break;
     case IR_SUBTRACT:
         fprintf(file, "subtract %%%zu, %%%zu",
                 instruction->value.pair.car->id,
@@ -250,16 +275,16 @@ IRInstruction *instruction
                 instruction->value.conditional_branch.false_branch->id);
     break;
     case IR_PHI:
-    fprintf(file, "phi");
-    IRPhiArgument *arg = instruction->value.phi_argument;
-    if (arg) {
-        fprintf(file, " [bb%zu : %%%zu]", arg->block->id, arg->value->id);
-        arg = arg->next;
-    }
-    for (; arg; arg = arg->next) {
-        fprintf(file, ", [bb%zu : %%%zu]", arg->block->id, arg->value->id);
-    }
-    break;
+        fprintf(file, "phi");
+        IRPhiArgument *arg = instruction->value.phi_argument;
+        if (arg) {
+            fprintf(file, " [bb%zu : %%%zu]", arg->block->id, arg->value->id);
+            arg = arg->next;
+        }
+        for (; arg; arg = arg->next) {
+            fprintf(file, ", [bb%zu : %%%zu]", arg->block->id, arg->value->id);
+        }
+        break;
     case IR_REGISTER:
         fprintf(file, "register r%d", instruction->result);
     break;
@@ -666,7 +691,10 @@ IRInstruction *lhs,
 IRInstruction *rhs
 )
 {
-    TODO();
+    INSTRUCTION(mul, IR_MULTIPLY);
+    set_pair_and_mark(mul, &mul->value.pair, lhs, rhs);
+    INSERT(mul);
+    return mul;
 }
 
 IRInstruction *ir_divide
@@ -675,7 +703,10 @@ IRInstruction *lhs,
 IRInstruction *rhs
 )
 {
-    TODO();
+    INSTRUCTION(div, IR_DIVIDE);
+    set_pair_and_mark(div, &div->value.pair, lhs, rhs);
+    INSERT(div);
+    return div;
 }
 
 IRInstruction *ir_modulo
@@ -684,7 +715,10 @@ IRInstruction *lhs,
 IRInstruction *rhs
 )
 {
-    TODO();
+    INSTRUCTION(mod, IR_MODULO);
+    set_pair_and_mark(mod, &mod->value.pair, lhs, rhs);
+    INSERT(mod);
+    return mod;
 }
 
 IRInstruction *ir_shift_left
@@ -693,7 +727,10 @@ IRInstruction *lhs,
 IRInstruction *rhs
 )
 {
-    TODO();
+    INSTRUCTION(shl, IR_SHIFT_LEFT);
+    set_pair_and_mark(shl, &shl->value.pair, lhs, rhs);
+    INSERT(shl);
+    return shl;
 }
 
 IRInstruction *ir_shift_right_arithmetic
@@ -702,7 +739,10 @@ IRInstruction *lhs,
 IRInstruction *rhs
 )
 {
-    TODO();
+    INSTRUCTION(sar, IR_SHIFT_RIGHT_ARITHMETIC);
+    set_pair_and_mark(sar, &sar->value.pair, lhs, rhs);
+    INSERT(sar);
+    return sar;
 }
 
 IRInstruction *ir_stack_allocate

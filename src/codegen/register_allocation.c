@@ -6,21 +6,22 @@
 #include <string.h>
 #include <codegen/intermediate_representation.h>
 
-//#define DEBUG_RA
+#define DEBUG_RA
 
 #ifdef DEBUG_RA
-#define IR_FEMIT(file, context) ir_femit(file, context)
+    #define IR_FEMIT(file, context) ir_femit(file, context)
 #else
     #define IR_FEMIT(file, context)
 #endif
 
-RegisterAllocationInfo *ra_allocate_info
-(CodegenContext *context,
+RegisterAllocationInfo* ra_allocate_info
+(CodegenContext* context,
 Register result_register,
 size_t general_registers_count,
-Register *general_registers,
+Register* general_registers,
 size_t argument_registers_count,
-Register *argument_registers
+Register* argument_registers,
+int64_t (*instruction_register_interference)(IRInstruction* instruction)
 )
 {
     if (!context) { return NULL; }
@@ -38,6 +39,8 @@ Register *argument_registers
     info->argument_register_count = argument_registers_count;
     info->argument_registers = argument_registers;
 
+    info->instruction_register_interference = instruction_register_interference;
+
     return info;
 }
 
@@ -45,73 +48,73 @@ Register *argument_registers
 
 // TODO: Siraide said this is all horribly wrong, and he is right.
 void phi2copy(RegisterAllocationInfo *info) {
-        for (IRFunction* function=info->context->all_functions; function; function=function->next) {
-            for (IRBlock *block = function->first; block; block = block->next) {
-                IRBlock* last_block = NULL;
-                for (IRInstruction *instruction = block->instructions; instruction; instruction = instruction->next) {
-                if (instruction->type == IR_PHI) {
-                    ASSERT(instruction->block != last_block,
-                            "Multiple PHI instructions in a single block are not allowed within register allocation!");
-                    IRPhiArgument *phi = instruction->value.phi_argument;
+    for (IRFunction* function=info->context->all_functions; function; function=function->next) {
+        for (IRBlock *block = function->first; block; block = block->next) {
+            IRBlock* last_block = NULL;
+            for (IRInstruction *instruction = block->instructions; instruction; instruction = instruction->next) {
+            if (instruction->type == IR_PHI) {
+                ASSERT(instruction->block != last_block,
+                        "Multiple PHI instructions in a single block are not allowed within register allocation!");
+                IRPhiArgument *phi = instruction->value.phi_argument;
 
-                    // Single PHI argument means that we can replace it with a
-                    // simple copy.
-                    if (phi && !phi->next) {
-                        instruction->type = IR_COPY;
-                        instruction->value.reference = phi->value;
-                        continue;
+                // Single PHI argument means that we can replace it with a
+                // simple copy.
+                if (phi && !phi->next) {
+                    instruction->type = IR_COPY;
+                    instruction->value.reference = phi->value;
+                    continue;
+                }
+
+                // For each of the PHI arguments, we basically insert a copy.
+                // Where we insert it depends on some complicated factors
+                // that have to do with control flow.
+                for (; phi; phi = phi->next) {
+                    IRInstruction *argument = phi->value;
+                    IRInstruction *copy = ir_copy(info->context, argument);
+
+                    switch (argument->block->branch->type) {
+                    default:
+                        insert_instruction_after(copy, argument);
+                        break;
+                    case IR_BRANCH_CONDITIONAL:
+                        if (0) {}
+                        IRBlock *critical_edge_trampoline = ir_block_create();
+                        ir_insert_into_block(critical_edge_trampoline, copy);
+                        ir_branch_into_block(instruction->block, critical_edge_trampoline);
+
+                        ASSERT(critical_edge_trampoline->branch, "branch NULL");
+
+                        ir_block_attach_to_function(instruction->block->function, critical_edge_trampoline);
+                        if (argument->block->branch->value.conditional_branch.true_branch == instruction->block) {
+                        argument->block->branch->value.conditional_branch.true_branch = critical_edge_trampoline;
+                        } else {
+                        argument->block->branch->value.conditional_branch.false_branch = critical_edge_trampoline;
+                        }
+                        break;
                     }
 
-                    // For each of the PHI arguments, we basically insert a copy.
-                    // Where we insert it depends on some complicated factors
-                    // that have to do with control flow.
-                    for (; phi; phi = phi->next) {
-                        IRInstruction *argument = phi->value;
-                        IRInstruction *copy = ir_copy(info->context, argument);
+                    mark_used(argument, copy);
+                    mark_used(copy, instruction);
 
-                        switch (argument->block->branch->type) {
-                        default:
-                            insert_instruction_after(copy, argument);
-                            break;
-                        case IR_BRANCH_CONDITIONAL:
-                            if (0) {}
-                            IRBlock *critical_edge_trampoline = ir_block_create();
-                            ir_insert_into_block(critical_edge_trampoline, copy);
-                            ir_branch_into_block(instruction->block, critical_edge_trampoline);
-
-                            ASSERT(critical_edge_trampoline->branch, "branch NULL");
-
-                            ir_block_attach_to_function(instruction->block->function, critical_edge_trampoline);
-                            if (argument->block->branch->value.conditional_branch.true_branch == instruction->block) {
-                            argument->block->branch->value.conditional_branch.true_branch = critical_edge_trampoline;
+                    // Remove use of PHI argument in PHI; it's now used in the
+                    // copy instead.
+                    Use *previous_use = NULL;
+                    for (Use *use = argument->uses; use; previous_use = use, use = use->next  ) {
+                        if (use->user == instruction) {
+                            if (previous_use) {
+                                previous_use->next = use->next;
                             } else {
-                            argument->block->branch->value.conditional_branch.false_branch = critical_edge_trampoline;
-                            }
-                            break;
-                        }
-
-                        mark_used(argument, copy);
-                        mark_used(copy, instruction);
-
-                        // Remove use of PHI argument in PHI; it's now used in the
-                        // copy instead.
-                        Use *previous_use = NULL;
-                        for (Use *use = argument->uses; use; previous_use = use, use = use->next  ) {
-                            if (use->user == instruction) {
-                                if (previous_use) {
-                                    previous_use->next = use->next;
-                                } else {
-                                    argument->uses = use;
-                                }
+                                argument->uses = use;
                             }
                         }
-                        phi->value = copy;
-                        }
+                    }
+                    phi->value = copy;
                     }
                 }
             }
         }
     }
+}
 
 void function_call_arguments(RegisterAllocationInfo *info) {
     for (IRFunction *function = info->context->all_functions; function; function = function->next) {
@@ -138,7 +141,10 @@ void function_call_arguments(RegisterAllocationInfo *info) {
 
 void function_return_values(RegisterAllocationInfo *info) {
     for (IRFunction *function = info->context->all_functions; function; function = function->next) {
-        function->return_value->result = info->result_register;
+        IRInstruction* copy = ir_copy(info->context, function->return_value);
+        copy->result = info->result_register;
+        insert_instruction_after(copy, function->return_value);
+        function->return_value = copy;
     }
 }
 
@@ -153,6 +159,12 @@ char needs_register(IRInstruction *instruction) {
     switch(instruction->type) {
     case IR_ADD:
     case IR_SUBTRACT:
+    case IR_MULTIPLY:
+    case IR_DIVIDE:
+    case IR_MODULO:
+    case IR_SHIFT_LEFT:
+    case IR_SHIFT_RIGHT_LOGICAL:
+    case IR_SHIFT_RIGHT_ARITHMETIC:
     case IR_LOAD:
     case IR_LOCAL_LOAD:
     case IR_LOCAL_ADDRESS:
@@ -523,65 +535,65 @@ void print_adjacency_array(AdjacencyListNode *array, size_t size) {
 //==== END ADJACENCY LISTS ====
 
 void replace_use(IRInstruction *usee, Use *use, IRInstruction *replacement) {
-      if (use->user == replacement) { return; }
+    if (use->user == replacement) { return; }
 
-      ASSERT(IR_COUNT == 18);
-      switch (use->user->type) {
-      case IR_PHI:
-        for (IRPhiArgument *phi = use->user->value.phi_argument; phi; phi = phi->next) {
-          if (phi->value == usee) {
+    ASSERT(IR_COUNT == 18);
+    switch (use->user->type) {
+    case IR_PHI:
+    for (IRPhiArgument *phi = use->user->value.phi_argument; phi; phi = phi->next) {
+        if (phi->value == usee) {
             phi->value = replacement;
-          }
         }
-        break;
-      case IR_LOAD:
-      case IR_LOCAL_ADDRESS:
-      case IR_LOCAL_LOAD:
-      case IR_COPY:
-        if (use->user->value.reference == usee) {
-          use->user->value.reference = replacement;
+    }
+    break;
+    case IR_LOAD:
+    case IR_LOCAL_ADDRESS:
+    case IR_LOCAL_LOAD:
+    case IR_COPY:
+    if (use->user->value.reference == usee) {
+        use->user->value.reference = replacement;
+    }
+    break;
+    case IR_GLOBAL_STORE:
+    if (use->user->value.global_assignment.new_value == usee) {
+        use->user->value.global_assignment.new_value = replacement;
+    }
+    break;
+    //case IR_STORE:
+    case IR_LOCAL_STORE:
+    case IR_COMPARISON:
+    case IR_ADD:
+    case IR_SUBTRACT:
+    if (use->user->value.pair.car == usee) {
+        use->user->value.pair.car = replacement;
+    }
+    if (use->user->value.pair.cdr == usee) {
+        use->user->value.pair.cdr = replacement;
+    }
+    break;
+    case IR_CALL:
+    if (use->user->value.call.type == IR_CALLTYPE_INDIRECT) {
+        if (use->user->value.call.value.callee == usee) {
+        use->user->value.call.value.callee = replacement;
         }
-        break;
-      case IR_GLOBAL_STORE:
-        if (use->user->value.global_assignment.new_value == usee) {
-          use->user->value.global_assignment.new_value = replacement;
-        }
-        break;
-        //case IR_STORE:
-      case IR_LOCAL_STORE:
-      case IR_COMPARISON:
-      case IR_ADD:
-      case IR_SUBTRACT:
-        if (use->user->value.pair.car == usee) {
-          use->user->value.pair.car = replacement;
-        }
-        if (use->user->value.pair.cdr == usee) {
-          use->user->value.pair.cdr = replacement;
-        }
-        break;
-      case IR_CALL:
-        if (use->user->value.call.type == IR_CALLTYPE_INDIRECT) {
-          if (use->user->value.call.value.callee == usee) {
-            use->user->value.call.value.callee = replacement;
-          }
-        }
-        break;
-      case IR_BRANCH_CONDITIONAL:
-        if (use->user->value.conditional_branch.condition == usee) {
-          use->user->value.conditional_branch.condition = replacement;
-        }
-        break;
-      case IR_PARAMETER_REFERENCE:
-      case IR_GLOBAL_ADDRESS:
-      case IR_GLOBAL_LOAD:
-      case IR_IMMEDIATE:
-      case IR_BRANCH:
-      case IR_RETURN:
-        break;
-      default:
-        TODO("Handle IR instruction type to be able to replace uses.");
-        break;
-      }
+    }
+    break;
+    case IR_BRANCH_CONDITIONAL:
+    if (use->user->value.conditional_branch.condition == usee) {
+        use->user->value.conditional_branch.condition = replacement;
+    }
+    break;
+    case IR_PARAMETER_REFERENCE:
+    case IR_GLOBAL_ADDRESS:
+    case IR_GLOBAL_LOAD:
+    case IR_IMMEDIATE:
+    case IR_BRANCH:
+    case IR_RETURN:
+    break;
+    default:
+    TODO("Handle IR instruction type to be able to replace uses.");
+    break;
+    }
 }
 
 void replace_uses(IRInstruction *instruction, IRInstruction *replacement) {
@@ -590,7 +602,7 @@ void replace_uses(IRInstruction *instruction, IRInstruction *replacement) {
     }
 }
 
-void coalesce(IRInstructionList **instructions, AdjacencyGraph *G) {
+void coalesce(RegisterAllocationInfo* info, IRInstructionList **instructions, AdjacencyGraph *G) {
     IRInstructionList *instructions_to_remove = NULL;
 
     // Attempt to remove copy instructions.
@@ -601,22 +613,28 @@ void coalesce(IRInstructionList **instructions, AdjacencyGraph *G) {
             || instruction->result
             || !adjm(G->matrix, instruction->index, instruction->value.reference->index)
             ) {
-        if (instruction->result == instruction->value.reference->result) {
-            // Replace all uses of INSTRUCTION with the thing being copied.
-            replace_uses(instruction, instruction->value.reference);
-            IRInstructionList *head = calloc(1, sizeof(IRInstructionList));
-            head->instruction = instruction;
-            head->next = instructions_to_remove;
-            instructions_to_remove = head;
-            continue;
-        }
+            if (instruction->result == instruction->value.reference->result) {
+                // Replace all uses of INSTRUCTION with the thing being copied.
+                replace_uses(instruction, instruction->value.reference);
+                IRInstructionList *head = calloc(1, sizeof(IRInstructionList));
+                head->instruction = instruction;
+                head->next = instructions_to_remove;
+                instructions_to_remove = head;
+                continue;
+            }
         } else {
-        continue;
+            continue;
         }
 
         if (instruction->result) {
         // Don't override anything that is already colored.
         if (instruction->value.reference->result) {
+            continue;
+        }
+
+        // Don't override with interfering register.
+        int64_t regmask = info->instruction_register_interference(instruction->value.reference);
+        if (regmask & (1 << (instruction->result - 1))) {
             continue;
         }
 
@@ -774,59 +792,65 @@ size_t length
 )
 {
     for (NumberStack *i = stack; i; i = i->next) {
-    AdjacencyListNode *node = array + i->number;
-    if (node->color || node->instruction->result) {
-        continue;
-    }
-
-    Register r = 0;
-
-    size_t k = info->register_count;
-    // Each byte refers to register in register list that must not be
-    // assigned to this.
-    char *register_interferences = calloc(1, k);
-
-    for (AdjacencyList *adj_it = node->adjacencies; adj_it; adj_it = adj_it->next) {
-        if (adj_it->node->color) {
-            register_interferences[adj_it->node->color - 1] = 1;
+        AdjacencyListNode *node = array + i->number;
+        if (node->color || node->instruction->result) {
+            continue;
         }
-    }
 
-    for (size_t x = 0; x < k; ++x) {
-        if (!register_interferences[x]) {
-        r = x + 1;
-        break;
+        Register r = 0;
+
+        size_t k = info->register_count;
+        // Each bit that is set refers to register in register list that
+        // must not be assigned to this.
+        int64_t register_interferences = 0;
+        register_interferences |= info->instruction_register_interference(node->instruction);
+        for (AdjacencyList *adj_it = node->adjacencies; adj_it; adj_it = adj_it->next) {
+            register_interferences |= info->instruction_register_interference(adj_it->node->instruction);
+            if (adj_it->node->color) {
+                register_interferences |= 1 << (adj_it->node->color - 1);
+            }
         }
-    }
 
-    free(register_interferences);
+        // TODO: We shouldn't need uses here. I don't really know how
+        // else to solve the issue, so this is how is for now.
+        // Ideally, this should be done before coalescing.
+        for (Use* use = node->instruction->uses; use; use = use->next) {
+            register_interferences |= info->instruction_register_interference(use->user);
+        }
 
-    if (!r) {
-        TODO("Can not color graph with %zu colors until stack spilling is implemented!", k);
-    }
-    node->color = r;
+        for (size_t x = 0; x < k; ++x) {
+            if (!(register_interferences & 1 << x)) {
+                r = x + 1;
+                break;
+            }
+        }
+
+        if (!r) {
+            TODO("Can not color graph with %zu colors until stack spilling is implemented!", k);
+        }
+        node->color = r;
     }
 
     for (size_t i = 0; i < length; ++i) {
-    AdjacencyListNode node = array[i];
-    IRInstruction *instruction = node.instruction;
-    Register r = node.color;
-    if (instruction->type == IR_PHI) {
-        for (IRPhiArgument *phi = instruction->value.phi_argument; phi; phi = phi->next) {
-            if (needs_register(phi->value)) {
-                AdjacencyListNode *phi_node = array + phi->value->index;
-                phi_node->color = r;
-                phi->value->result = r;
-                // TODO: Should we follow argument recursively if it is also PHI?
+        AdjacencyListNode node = array[i];
+        IRInstruction *instruction = node.instruction;
+        Register r = node.color;
+        if (instruction->type == IR_PHI) {
+            for (IRPhiArgument *phi = instruction->value.phi_argument; phi; phi = phi->next) {
+                if (needs_register(phi->value)) {
+                    AdjacencyListNode *phi_node = array + phi->value->index;
+                    phi_node->color = r;
+                    phi->value->result = r;
+                    // TODO: Should we follow argument recursively if it is also PHI?
+                }
             }
         }
-    }
 
-    // Do not over-write preallocated registers.
-    if (instruction->result) {
-        continue;
-    }
-    instruction->result = r;
+        // Do not over-write preallocated registers.
+        if (instruction->result) {
+            continue;
+        }
+        instruction->result = r;
     }
 }
 
@@ -861,7 +885,7 @@ void ra(RegisterAllocationInfo *info) {
 
     PRINT_ADJACENCY_MATRIX(G.matrix);
 
-    coalesce(&instructions, &G);
+    coalesce(info, &instructions, &G);
 
     ir_set_ids(info->context);
     IR_FEMIT(stdout, info->context);
