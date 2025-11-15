@@ -107,7 +107,7 @@ void phi2copy(RegisterAllocationInfo *info) {
                         }
                         phi->value = copy;
                         }
-                    }  
+                    }
                 }
             }
         }
@@ -378,18 +378,17 @@ void build_adjacency_matrix(IRInstructionList *instructions, AdjacencyGraph *G) 
         size_t size = last->instruction->index + 1;
         G->matrix = adjm_create(size);
         for(IRInstructionList *A = instructions; A; A = A->next) {
-        for(IRInstructionList *B = instructions; B; B = B->next) {
-            if (A == B) { continue; }
-            if (adjm(G->matrix, A->instruction->index, B->instruction->index)) {
-                continue;
-            }
-            if (instructions_interfere(A->instruction, B->instruction)) {
-            adjm_set(G->matrix, A->instruction->index, B->instruction->index);
+            for(IRInstructionList *B = instructions; B; B = B->next) {
+                if (A == B) { continue; }
+                if (adjm(G->matrix, A->instruction->index, B->instruction->index)) {
+                    continue;
+                }
+                if (instructions_interfere(A->instruction, B->instruction)) {
+                adjm_set(G->matrix, A->instruction->index, B->instruction->index);
             }
         }
     }
 }
-
 
 void print_adjacency_matrix(AdjacencyMatrix m) {
     for (size_t y = 0; y < m.size; ++y) {

@@ -419,7 +419,7 @@ IRFunction *ir_function(CodegenContext *context, const char* name) {
     function->last = block;
     context->block = block;
 
-    block->function = function; // 3:01:01-6:49:57
+    block->function = function;
 
     return function;
 }
