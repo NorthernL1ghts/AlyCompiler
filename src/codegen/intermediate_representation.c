@@ -612,6 +612,7 @@ IRBlock *block
     INSTRUCTION(branch, IR_BRANCH);
     branch->value.block = destination;
     block->branch = branch;
+    branch->block = block;
     return branch;
 }
 
@@ -623,6 +624,7 @@ IRBlock *destination
     INSTRUCTION(branch, IR_BRANCH);
     branch->value.block = destination;
     context->block->branch = branch;
+    branch->block = context->block;
     return branch;
 }
 
@@ -630,6 +632,7 @@ IRBlock *destination
 IRInstruction *ir_return(CodegenContext *context) {
     INSTRUCTION(branch, IR_RETURN);
     context->block->branch = branch;
+    branch->block = context->block;
     return branch;
 }
 
