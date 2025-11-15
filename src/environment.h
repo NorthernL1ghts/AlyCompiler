@@ -1,6 +1,8 @@
 #ifndef ALY_COMPILER_ENVIRONMENT_H
 #define ALY_COMPILER_ENVIRONMENT_H
 
+#include <stddef.h>
+
 typedef struct Node Node;
 
 // TODO:
@@ -18,7 +20,7 @@ typedef struct Environment {
     Binding* bind;
 } Environment;
 
-void environment_print(Environment env, long long indent);
+void environment_print(Environment env, size_t indent);
 
 Environment* environment_create(Environment* parent);
 

@@ -33,44 +33,19 @@ add_executable(alyc ${SOURCE_FILES})
 # Include directories
 target_include_directories(alyc PUBLIC src)
 
-# Compiler flags - warnings on
-target_compile_options(alyc PRIVATE
-    # MSVC: enable all warnings
-    # $<$<C_COMPILER_ID:MSVC>:/W4 /permissive->
-
-    # GCC / MinGW: enable common warnings and treat warnings as errors optionally
-    # $<$<C_COMPILER_ID:GNU>:-Wall -Wextra -Wpedantic>
-
-    # Clang: similar to GCC
-    # $<$<C_COMPILER_ID:Clang>:-Wall -Wextra -Wpedantic>
-)
-
-target_compile_definitions(
+if (NOT MSVC)
+  target_compile_options(
     alyc
     PRIVATE
-    _FORTIFY_SOURCE=3
-)
-
-# Ensure C standard is set based on compiler
-if (CMAKE_C_COMPILER_ID MATCHES "MSVC")
-    target_compile_features(alyc PRIVATE c_std_11)
-elseif (CMAKE_C_COMPILER_ID MATCHES "GNU" OR CMAKE_C_COMPILER_ID MATCHES "Clang")
-    target_compile_features(alyc PRIVATE c_std_99)
-endif()
-
-# Output directories
-set_target_properties(alyc PROPERTIES
-    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
-    LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
-    ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
-)
-
-# Prevent MinGW GCC from pulling in old MSVC libs like oldnames
-if (CMAKE_C_COMPILER_ID STREQUAL "GNU")
-    set(CMAKE_C_STANDARD_LIBRARIES "")
-endif()
-
-# Default build type
-if(NOT CMAKE_BUILD_TYPE)
-    set(CMAKE_BUILD_TYPE Release CACHE STRING "Set build type to Release or Debug" FORCE)
+    -Wall -Wextra
+    -Wshadow -Wconversion
+    -Werror=return-type -Werror=implicit-function-declaration
+    -Werror=implicit-int -Werror=pointer-arith
+    -Wno-unused
+    -O0 -g
+  )
+  if (NOT WIN32)
+    target_compile_options(func PRIVATE -fsanitize=address)
+    target_link_options(func PRIVATE -fsanitize=address)
+  endif()
 endif()

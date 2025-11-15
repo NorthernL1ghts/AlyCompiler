@@ -42,8 +42,8 @@ struct CodegenContext {
     ParsingContext* parse_context;
     FILE* code;
 
-    VECTOR (IRFunction*) all_functions;
-    IRFunction* function;
+    VECTOR (IRFunction *) *functions;
+IRFunction* function;
     IRBlock* block;
 
     /// LOCALS

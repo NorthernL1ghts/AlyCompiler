@@ -1,6 +1,7 @@
 #ifndef ALY_COMPILER_PARSER_H
 #define ALY_COMPILER_PARSER_H
 
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <error.h>
@@ -96,7 +97,7 @@ typedef struct Node {
   union NodeValue {
     int64_t integer;
     char *symbol;
-    IRInstruction* ir_instruction;
+    IRInstruction *ir_instruction;
   } value;
 
   unsigned int pointer_indirection;
@@ -137,11 +138,10 @@ void node_free(Node *root);
 /// Copy A into B, asserting allocations.
 void node_copy(Node *a, Node *b);
 
-// @return Boolean-like value; 1 for success, 0 for failure.
-int token_string_equalp(char* string, Token *token);
+bool token_string_equalp(char* string, Token *token);
 
 /// @return Boolean-like value; 1 upon success, 0 for failure.
-int parse_integer(Token *token, Node *node);
+bool parse_integer(Token *token, Node *node);
 
 typedef struct ParsingState {
   Token *current;
