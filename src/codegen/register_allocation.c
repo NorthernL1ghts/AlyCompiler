@@ -6,7 +6,7 @@
 #include <string.h>
 #include <codegen/intermediate_representation.h>
 
-// #define DEBUG_RA
+#define DEBUG_RA
 
 #ifdef DEBUG_RA
     #define IR_FEMIT(file, context) ir_femit(file, context)
@@ -192,7 +192,8 @@ typedef struct IRInstructionList {
     struct IRInstructionList *next;
 } IRInstructionList;
 
-IRInstructionList *collect_instructions(RegisterAllocationInfo *info) {
+/// If needs_register is non-zero, return only instructions that need a register allocated.
+IRInstructionList *collect_instructions(RegisterAllocationInfo *info, char needs_register_filter) {
     size_t index = 0;
     IRInstructionList *list = NULL;
     IRInstructionList *list_it = NULL;
@@ -201,13 +202,13 @@ IRInstructionList *collect_instructions(RegisterAllocationInfo *info) {
             for (IRInstruction *instruction = block->instructions; instruction; instruction = instruction->next) {
                 // Add instruction to flat list iff instruction needs register
                 // allocated.
-                if (needs_register(instruction)) {
+                if (!needs_register_filter || needs_register(instruction)) {
                     if (list_it) {
-                    list_it->next = calloc(1, sizeof(IRInstructionList));
-                    list_it = list_it->next;
+                        list_it->next = calloc(1, sizeof(IRInstructionList));
+                        list_it = list_it->next;
                     } else {
-                    list_it = calloc(1, sizeof(IRInstructionList));
-                    list = list_it;
+                        list_it = calloc(1, sizeof(IRInstructionList));
+                        list = list_it;
                     }
                     instruction->index = index++;
                     list_it->instruction = instruction;
@@ -877,7 +878,7 @@ void ra(RegisterAllocationInfo *info) {
     ir_set_ids(info->context);
     IR_FEMIT(stdout, info->context);
 
-    IRInstructionList *instructions = collect_instructions(info);
+    IRInstructionList *instructions = collect_instructions(info, 0);
 
     AdjacencyGraph G;
     G.order = info->register_count;
@@ -890,7 +891,7 @@ void ra(RegisterAllocationInfo *info) {
     ir_set_ids(info->context);
     IR_FEMIT(stdout, info->context);
 
-    instructions = collect_instructions(info);
+    instructions = collect_instructions(info, 1);
     build_adjacency_matrix(instructions, &G);
     build_adjacency_lists(instructions, &G);
 
