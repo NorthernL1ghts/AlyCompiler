@@ -36,10 +36,10 @@ target_include_directories(alyc PUBLIC src)
 # Compiler flags - warnings on
 target_compile_options(alyc PRIVATE
     # MSVC: enable all warnings
-    $<$<C_COMPILER_ID:MSVC>:/W4 /permissive->
+    # $<$<C_COMPILER_ID:MSVC>:/W4 /permissive->
 
     # GCC / MinGW: enable common warnings and treat warnings as errors optionally
-    $<$<C_COMPILER_ID:GNU>:-Wall -Wextra -Wpedantic>
+    # $<$<C_COMPILER_ID:GNU>:-Wall -Wextra -Wpedantic>
 
     # Clang: similar to GCC
     # $<$<C_COMPILER_ID:Clang>:-Wall -Wextra -Wpedantic>
