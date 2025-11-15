@@ -12,253 +12,255 @@
   (name)->type = (given_type);
 
 typedef enum IRType {
-    IR_IMMEDIATE,
-    IR_CALL,
-    IR_LOAD,
+  IR_IMMEDIATE,
+  IR_CALL,
+  IR_LOAD,
 
-    IR_RETURN,
-    IR_BRANCH,
-    IR_BRANCH_CONDITIONAL,
+  IR_RETURN,
+  IR_BRANCH,
+  IR_BRANCH_CONDITIONAL,
 
-    IR_PHI,
-    IR_COPY,
+  IR_PHI,
+  IR_COPY,
 
-    IR_ADD,
-    IR_SUBTRACT,
-    IR_MULTIPLY,
-    IR_DIVIDE,
-    IR_MODULO,
+  IR_ADD,
+  IR_SUBTRACT,
+  IR_MULTIPLY,
+  IR_DIVIDE,
+  IR_MODULO,
 
-    IR_SHIFT_LEFT,
-    IR_SHIFT_RIGHT_ARITHMETIC,
-    IR_SHIFT_RIGHT_LOGICAL,
+  IR_SHIFT_LEFT,
+  IR_SHIFT_RIGHT_ARITHMETIC,
+  IR_SHIFT_RIGHT_LOGICAL,
 
-    IR_LOCAL_LOAD,
-    IR_LOCAL_STORE,
-    IR_LOCAL_ADDRESS,
+  IR_LOCAL_LOAD,
+  IR_LOCAL_STORE,
+  IR_LOCAL_ADDRESS,
 
-    IR_GLOBAL_LOAD,
-    IR_GLOBAL_STORE,
-    IR_GLOBAL_ADDRESS,
+  IR_GLOBAL_LOAD,
+  IR_GLOBAL_STORE,
+  IR_GLOBAL_ADDRESS,
 
-    /// Store data at an address.
-    IR_STORE,
+  /// Store data at an address.
+  IR_STORE,
 
-    IR_COMPARISON,
+  IR_COMPARISON,
 
-    IR_PARAMETER_REFERENCE,
+  IR_PARAMETER_REFERENCE,
 
-    // A lot of backends have these instructions, but the IR isn't
-    // generated with them in it.
-    IR_REGISTER,
-    IR_STACK_ALLOCATE,
+  // A lot of backends have these instructions, but the IR isn't
+  // generated with them in it.
+  IR_REGISTER,
+  IR_STACK_ALLOCATE,
 
-    IR_COUNT
+  IR_COUNT
 } IRType;
 
 typedef struct IRPhiArgument {
-    /// The value of the argument itself.
-    IRInstruction *value;
-    /// Stores the predecessor to the Phi node in the direction of the
-    /// argument assignment.
-    ///    [a]
-    ///  [t] [o]
-    ///    \ [b]
-    ///    [j]
-    /// For example, if arg->value->block == o, then arg->block == b.
-    IRBlock *block;
-    // A linked list of arguments.
-    struct IRPhiArgument *next;
+  /// The value of the argument itself.
+  IRInstruction *value;
+  /// Stores the predecessor to the Phi node in the direction of the
+  /// argument assignment.
+  ///    [a]
+  ///  [t] [o]
+  ///    \ [b]
+  ///    [j]
+  /// For example, if arg->value->block == o, then arg->block == b.
+  IRBlock *block;
+  // A linked list of arguments.
+  struct IRPhiArgument *next;
 } IRPhiArgument;
 
 typedef struct IRPair {
-    IRInstruction *car;
-    IRInstruction *cdr;
+  IRInstruction *car;
+  IRInstruction *cdr;
 } IRPair;
 
 typedef struct IRCallArgument {
-    IRInstruction *value;
-    struct IRCallArgument *next;
+  IRInstruction *value;
+  struct IRCallArgument *next;
 } IRCallArgument;
 
 typedef enum IRCallType {
-    IR_CALLTYPE_DIRECT,
-    IR_CALLTYPE_INDIRECT,
-    IR_CALLTYPE_COUNT
+  IR_CALLTYPE_DIRECT,
+  IR_CALLTYPE_INDIRECT,
+  IR_CALLTYPE_COUNT
 } IRCallType;
 
 typedef union IRCallValue {
-    const char *name;
-    IRInstruction *callee;
+  const char *name;
+  IRInstruction *callee;
 } IRCallValue;
 
 typedef struct IRCall {
-    IRCallType type;
-    IRCallValue value;
-    IRCallArgument *arguments;
-    bool tail_call;
+  IRCallType type;
+  IRCallValue value;
+  IRCallArgument *arguments;
+  bool tail_call;
 } IRCall;
 
 typedef struct IRBranchConditional {
-    IRInstruction *condition;
-    IRBlock *true_branch;
-    IRBlock *false_branch;
+  IRInstruction *condition;
+  IRBlock *true_branch;
+  IRBlock *false_branch;
 } IRBranchConditional;
 
 typedef struct IRComparison {
-    enum ComparisonType type;
-    IRPair pair;
+  enum ComparisonType type;
+  IRPair pair;
 } IRComparison;
 
 typedef struct IRGlobalAssignment {
-    IRInstruction *new_value;
-    char *name;
+  IRInstruction *new_value;
+  char *name;
 } IRGlobalAssignment;
 
 typedef struct IRStackAllocation {
-    size_t size;
-    size_t offset;
+  size_t size;
+  size_t offset;
 } IRStackAllocation;
 
 typedef union IRValue {
-    IRBlock *block;
-    IRInstruction *reference;
-    int64_t immediate;
-    IRCall call;
-    IRPhiArgument *phi_argument;
-    IRBranchConditional conditional_branch;
-    IRPair pair;
-    IRComparison comparison;
-    char *name;
-    IRGlobalAssignment global_assignment;
-    IRStackAllocation stack_allocation;
+  IRBlock *block;
+  IRInstruction *reference;
+  int64_t immediate;
+  IRCall call;
+  IRPhiArgument *phi_argument;
+  IRBranchConditional conditional_branch;
+  IRPair pair;
+  IRComparison comparison;
+  char *name;
+  IRGlobalAssignment global_assignment;
+  IRStackAllocation stack_allocation;
 } IRValue;
 
+
 typedef struct Use {
-    IRInstruction *user;
-    struct Use *next;
+  IRInstruction *user;
+  struct Use *next;
 } Use;
 
 void mark_used(IRInstruction *usee, IRInstruction *user);
 
 void set_pair_and_mark
 (IRInstruction *parent,
-IRPair *pair,
-IRInstruction *lhs,
-IRInstruction *rhs);
+ IRPair *pair,
+ IRInstruction *lhs,
+ IRInstruction *rhs);
+
 
 typedef struct IRInstruction {
-    int type;
-    IRValue value;
+  int type;
+  IRValue value;
 
-    /// A unique identifier (mainly for debug purposes).
-    size_t id;
+  /// A unique identifier (mainly for debug purposes).
+  size_t id;
 
-    IRBlock *block;
+  IRBlock *block;
 
-    // Register allocation.
-    size_t index;
+  // Register allocation.
+  size_t index;
 
-    Register result;
+  Register result;
 
-    // List of uses---instructions that use this instruction should go in
-    // this list.
-    Use *uses;
+  // List of uses---instructions that use this instruction should go in
+  // this list.
+  Use *uses;
 
-    // Doubly linked list.
-    struct IRInstruction *previous;
-    struct IRInstruction *next;
+  // Doubly linked list.
+  struct IRInstruction *previous;
+  struct IRInstruction *next;
 } IRInstruction;
 
 typedef struct IRBlockPredecessor {
-    IRBlock *block;
-    struct IRBlockPredecessor *next;
+  IRBlock *block;
+  struct IRBlockPredecessor *next;
 } IRBlockPredecessor;
 
 /// A block is a list of instructions that have control flow enter at
 /// the beginning and leave at the end.
 typedef struct IRBlock {
-    const char* name;
+  const char *name;
 
-    IRInstruction *instructions;
-    IRInstruction *last_instruction;
+  IRInstruction *instructions;
+  IRInstruction *last_instruction;
 
-    IRInstruction *branch;
+  IRInstruction *branch;
 
-    IRBlockPredecessor *predecessor;
+  IRBlockPredecessor *predecessor;
 
-    /// A pointer to the function the block is attached to, or NULL if
-    /// detached.
-    IRFunction *function;
+  /// A pointer to the function the block is attached to, or NULL if
+  /// detached.
+  IRFunction *function;
 
-    // Doubly linked list.
-    struct IRBlock *previous;
-    struct IRBlock *next;
+  // Doubly linked list.
+  struct IRBlock *previous;
+  struct IRBlock *next;
 
-    // Unique ID (among blocks)
-    size_t id;
+  // Unique ID (among blocks)
+  size_t id;
 } IRBlock;
 
 typedef struct IRFunction {
-    const char* name;
+  const char *name;
 
-    IRBlock *first;
-    IRBlock *last;
+  IRBlock *first;
+  IRBlock *last;
 
-    IRInstruction *return_value;
+  IRInstruction *return_value;
 
-    // Linked list.
-    struct IRFunction *next;
+  // Linked list.
+  struct IRFunction *next;
 
-    // Unique ID (among functions)
-    size_t id;
+  // Unique ID (among functions)
+  size_t id;
 
-    // Used by certain backends.
-    size_t locals_total_size;
+  // Used by certain backends.
+  size_t locals_total_size;
 
-    int64_t registers_in_use;
+  int64_t registers_in_use;
 } IRFunction;
 
 void ir_set_ids(CodegenContext *context);
 
 void ir_femit_instruction
 (FILE *file,
-IRInstruction *instruction);
+ IRInstruction *instruction);
 void ir_femit_block
 (FILE *file,
-IRBlock *block);
+ IRBlock *block);
 void ir_femit_function
 (FILE *file,
-IRFunction *function);
+ IRFunction *function);
 void ir_femit
 (FILE *file,
-CodegenContext *context);
+ CodegenContext *context);
 
 void ir_add_function_call_argument
 (CodegenContext *context,
-IRInstruction *call,
-IRInstruction *argument);
+ IRInstruction *call,
+ IRInstruction *argument);
 
 IRBlock *ir_block_create();
 
 void ir_block_attach_to_function
 (IRFunction *function,
-IRBlock *new_block);
+ IRBlock *new_block);
 
 void ir_block_attach
 (CodegenContext *context,
-IRBlock *new_block);
+ IRBlock *new_block);
 
 IRFunction *ir_function_create();
-IRFunction *ir_function(CodegenContext *context, const char* name);
+IRFunction *ir_function(CodegenContext *context, const char *name);
 
 void ir_insert_into_block
 (IRBlock *block,
-IRInstruction *new_instruction);
+ IRInstruction *new_instruction);
 
 void ir_insert
 (CodegenContext *context,
-IRInstruction *new_instruction);
+ IRInstruction *new_instruction);
 
 /// Insert instruction A before instruction B
 void insert_instruction_before(IRInstruction *a, IRInstruction *b);
@@ -395,5 +397,6 @@ void ir_replace_uses(IRInstruction *instruction, IRInstruction *replacement);
 /// Used by the optimiser.
 void ir_remove(IRInstruction* instruction);
 void ir_remove_use(IRInstruction *usee, IRInstruction *user);
+void ir_remove_block(IRBlock *block);
 
 #endif /* ALY_COMPILER_INTERMEDIATE_REPRESENTATION_H */
