@@ -944,27 +944,27 @@ void emit_instruction(CodegenContext *context, IRInstruction *instruction) {
     case IR_REGISTER:
     break;
     case IR_IMMEDIATE:
-    femit_x86_64(context, I_MOV, IMMEDIATE_TO_REGISTER, instruction->value.immediate, instruction->result);
-    break;
+        femit_x86_64(context, I_MOV, IMMEDIATE_TO_REGISTER, instruction->value.immediate, instruction->result);
+        break;
     case IR_COPY:
-    femit_x86_64(context, I_MOV, REGISTER_TO_REGISTER, instruction->value.reference->result, instruction->result);
+        femit_x86_64(context, I_MOV, REGISTER_TO_REGISTER, instruction->value.reference->result, instruction->result);
     break;
     case IR_GLOBAL_ADDRESS:
         femit_x86_64(context, I_LEA, NAME_TO_REGISTER, REG_RIP, instruction->value.name, instruction->result);
     break;
     case IR_GLOBAL_STORE:
-    femit_x86_64(context, I_MOV, REGISTER_TO_NAME,
-                 instruction->value.global_assignment.new_value->result,
-                 REG_RIP, instruction->value.global_assignment.name);
-    break;
+        femit_x86_64(context, I_MOV, REGISTER_TO_NAME,
+                    instruction->value.global_assignment.new_value->result,
+                    REG_RIP, instruction->value.global_assignment.name);
+        break;
     case IR_GLOBAL_LOAD:
         femit_x86_64(context, I_MOV, NAME_TO_REGISTER, REG_RIP, instruction->value.name, instruction->result);
     break;
     case IR_LOCAL_STORE:
-    femit_x86_64(context, I_MOV, REGISTER_TO_MEMORY,
-        instruction->value.pair.cdr->result, REG_RBP,
-        (int64_t)-instruction->value.pair.car->value.stack_allocation.offset);
-    break;
+        femit_x86_64(context, I_MOV, REGISTER_TO_MEMORY,
+            instruction->value.pair.cdr->result, REG_RBP,
+            (int64_t)-instruction->value.pair.car->value.stack_allocation.offset);
+        break;
     case IR_LOCAL_LOAD:
     femit_x86_64(context, I_MOV, MEMORY_TO_REGISTER, REG_RBP,
         (int64_t)-instruction->value.reference->value.stack_allocation.offset, instruction->result);
@@ -973,10 +973,9 @@ void emit_instruction(CodegenContext *context, IRInstruction *instruction) {
     if (0) {}
         // Save caller saved registers used in caller function
         ASSERT(instruction->block, "call instruction NULL block");
-        ir_femit_block(stderr, instruction->block);
         ASSERT(instruction->block->function, "block has NULL function");
         int64_t func_regs = instruction->block->function->registers_in_use;
-        for (int i = 1; i < sizeof(func_regs) * 8; ++i) {
+        for (int i = REG_RBX; i < sizeof(func_regs) * 8; ++i) {
             if (is_caller_saved(i)) {
                 femit_x86_64(context, I_PUSH, REGISTER, i);
             }
@@ -987,41 +986,57 @@ void emit_instruction(CodegenContext *context, IRInstruction *instruction) {
             femit_x86_64(context, I_CALL, NAME, instruction->value.call.value.name);
         }
         // Restore all caller saved registers when calling external function.
-        for (int i = sizeof(func_regs) * 8 - 1; i; --i) {
+        for (int i = sizeof(func_regs) * 8 - 1; i > REG_RBX; --i) {
             if (func_regs & (1 << i) &&is_caller_saved(i)) {
                 femit_x86_64(context, I_POP, REGISTER, i);
             }
         }
     break;
     case IR_RETURN:
-    femit_x86_64(context, I_RET);
-    break;
+        codegen_epilogue_x86_64(context);
+        femit_x86_64(context, I_RET);
+        break;
     case IR_BRANCH:
-    // TODO:If jumping to new block, don't generate
-    femit_x86_64(context, I_JMP, NAME, instruction->value.block->name);
-    break;
+        // TODO:If jumping to new block, don't generate
+        femit_x86_64(context, I_JMP, NAME, instruction->value.block->name);
+        break;
     case IR_BRANCH_CONDITIONAL:
-    femit_x86_64(context, I_TEST, REGISTER_TO_REGISTER,
-        instruction->value.conditional_branch.condition->result,
-        instruction->value.conditional_branch.condition->result);
-    femit_x86_64(context, I_JCC, JUMP_TYPE_Z, instruction->value.conditional_branch.false_branch->name);
-    femit_x86_64(context, I_JMP, NAME, instruction->value.conditional_branch.false_branch->name);
-    break;
+        femit_x86_64(context, I_TEST, REGISTER_TO_REGISTER,
+            instruction->value.conditional_branch.condition->result,
+            instruction->value.conditional_branch.condition->result);
+        femit_x86_64(context, I_JCC, JUMP_TYPE_Z, instruction->value.conditional_branch.false_branch->name);
+        femit_x86_64(context, I_JMP, NAME, instruction->value.conditional_branch.true_branch->name);
+        break;
     case IR_COMPARISON:
-    codegen_comparison_x86_64(context, instruction->value.comparison.type,
-    instruction->value.comparison.pair.car->result,
-    instruction->value.comparison.pair.cdr->result,
-    instruction->result);
-    break;
+        codegen_comparison_x86_64(context, instruction->value.comparison.type,
+            instruction->value.comparison.pair.car->result,
+            instruction->value.comparison.pair.cdr->result,
+            instruction->result);
+        break;
+    case IR_ADD:
+        femit_x86_64(context, I_ADD, REGISTER_TO_REGISTER,
+            instruction->value.pair.cdr->result,
+            instruction->value.pair.car->result);
+        if (instruction->result != instruction->value.pair.car->result) {
+            femit_x86_64(context, I_MOV, REGISTER_TO_REGISTER,
+                instruction->value.pair.car->result,
+                instruction->result);
+        }
+        break;
     case IR_SUBTRACT:
-    femit_x86_64(context, I_SUB, REGISTER_TO_REGISTER,
-        instruction->value.pair.cdr->result,
-        instruction->value.pair.car->result);
-    break;
+        femit_x86_64(context, I_SUB, REGISTER_TO_REGISTER,
+            instruction->value.pair.cdr->result,
+            instruction->value.pair.car->result);
+        if (instruction->result != instruction->value.pair.car->result) {
+            femit_x86_64(context, I_MOV, REGISTER_TO_REGISTER,
+                instruction->value.pair.car->result,
+                instruction->result);
+        }
+        break;
     default:
-    ir_femit_instruction(stderr, instruction);
-    TODO("Handle IRType %d\n", instruction->type);
-    break;
+        ir_femit_instruction(stderr, instruction);
+        TODO("Handle IRType %d\n", instruction->type);
+        break;
     }
 }
 
@@ -1031,7 +1046,6 @@ void emit_block(CodegenContext *context, IRBlock *block) {
     for (IRInstruction *instruction = block->instructions; instruction; instruction = instruction->next) {
         emit_instruction(context, instruction);
     }
-
     emit_instruction(context, block->branch);
 }
 
@@ -1104,39 +1118,39 @@ static void lower(CodegenContext *context) {
             }
         for (IRInstruction *instruction = block->instructions; instruction;  instruction = instruction->next) {
             switch (instruction->type) {
-            case IR_PARAMETER_REFERENCE:
-                if (instruction->value.immediate >= (int64_t)argument_register_count) {
-                    TODO("arch_x86_64 doesn't yet support passing arguments on the stack, sorry.");
+                case IR_PARAMETER_REFERENCE:
+                    if (instruction->value.immediate >= (int64_t)argument_register_count) {
+                        TODO("arch_x86_64 doesn't yet support passing arguments on the stack, sorry.");
+                    }
+
+                    // Create instruction to save parameter on function entry onto stack from register.
+                    IRInstruction *store = calloc(1, sizeof(IRInstruction));
+                    ASSERT(store, "Could not allocate IRInstruction");
+                    store->type = IR_LOCAL_STORE;
+
+                    IRInstruction *register_instruction = calloc(1, sizeof(IRInstruction));
+                    ASSERT(register_instruction, "Could not allocate IRInstruction");
+                    register_instruction->type = IR_REGISTER;
+                    register_instruction->result = argument_registers[instruction->value.immediate - 1];
+
+                    set_pair_and_mark(store, &store->value.pair, instruction, register_instruction);
+
+                    insert_instruction_after(store, instruction);
+                    insert_instruction_after(register_instruction, instruction);
+
+                    // Overwrite current instruction to allocate space for parameter on stack.
+                    instruction->type = IR_STACK_ALLOCATE;
+                    // TODO: Size here be dictated by size of type of parameter.
+                    // We would first have to know which function we are within,
+                    // that way we can lookup the parameters, that way we can
+                    // lookup the type of the parameter
+                    // (based on parameter index). Basically, lots of environment
+                    // lookups.
+                    instruction->value.stack_allocation.size = 8;
+                    break;
+                default:
+                    break;
                 }
-
-                // Create instruction to save parameter on function entry onto stack from register.
-                IRInstruction *store = calloc(1, sizeof(IRInstruction));
-                ASSERT(store, "Could not allocate IRInstruction");
-                store->type = IR_LOCAL_STORE;
-
-                IRInstruction *register_instruction = calloc(1, sizeof(IRInstruction));
-                ASSERT(register_instruction, "Could not allocate IRInstruction");
-                register_instruction->type = IR_REGISTER;
-                register_instruction->result = argument_registers[instruction->value.immediate];
-
-                set_pair_and_mark(store, &store->value.pair, instruction, register_instruction);
-
-                insert_instruction_after(store, instruction);
-                insert_instruction_after(register_instruction, instruction);
-
-                // Overwrite current instruction to allocate space for parameter on stack.
-                instruction->type = IR_STACK_ALLOCATE;
-                // TODO: Size here be dictated by size of type of parameter.
-                // We would first have to know which function we are within,
-                // that way we can lookup the parameters, that way we can
-                // lookup the type of the parameter
-                // (based on parameter index). Basically, lots of environment
-                // lookups.
-                instruction->value.stack_allocation.size = 8;
-                break;
-            default:
-                break;
-            }
             }
         }
     }
@@ -1144,20 +1158,20 @@ static void lower(CodegenContext *context) {
 
 void calculate_stack_offsets(CodegenContext *context) {
     for (IRFunction *function = context->function; function; function = function->next) {
-    size_t offset = 0;
-    for (IRBlock *block = function->first; block; block = block->next) {
-        for (IRInstruction *instruction = block->instructions; instruction; instruction = instruction->next) {
-            switch (instruction->type) {
-            case IR_STACK_ALLOCATE:
-                offset += instruction->value.stack_allocation.size;
-                instruction->value.stack_allocation.offset = offset;
-                break;
-            default:
-                break;
+        size_t offset = 0;
+        for (IRBlock *block = function->first; block; block = block->next) {
+            for (IRInstruction *instruction = block->instructions; instruction; instruction = instruction->next) {
+                switch (instruction->type) {
+                case IR_STACK_ALLOCATE:
+                    offset += instruction->value.stack_allocation.size;
+                    instruction->value.stack_allocation.offset = offset;
+                    break;
+                default:
+                    break;
+                }
             }
         }
-    }
-    function->locals_total_size = offset;
+        function->locals_total_size = offset;
     }
 }
 
@@ -1165,21 +1179,21 @@ void codegen_emit_x86_64(CodegenContext *context) {
     // Setup register allocation structures.
     switch (context->call_convention) {
     case CG_CALL_CONV_LINUX:
-    caller_saved_register_count = LINUX_CALLER_SAVED_REGISTER_COUNT;
-    caller_saved_registers = linux_argument_registers;
-    argument_register_count = LINUX_ARGUMENT_REGISTER_COUNT;
-    argument_registers = linux_argument_registers;
-    break;
+        caller_saved_register_count = LINUX_CALLER_SAVED_REGISTER_COUNT;
+        caller_saved_registers = linux_argument_registers;
+        argument_register_count = LINUX_ARGUMENT_REGISTER_COUNT;
+        argument_registers = linux_argument_registers;
+        break;
     case CG_CALL_CONV_MSWIN:
-    caller_saved_register_count = MSWIN_CALLER_SAVED_REGISTER_COUNT;
-    caller_saved_registers = mswin_argument_registers;
-    argument_register_count = MSWIN_ARGUMENT_REGISTER_COUNT;
-    argument_registers = mswin_argument_registers;
-    break;
+        caller_saved_register_count = MSWIN_CALLER_SAVED_REGISTER_COUNT;
+        caller_saved_registers = mswin_argument_registers;
+        argument_register_count = MSWIN_ARGUMENT_REGISTER_COUNT;
+        argument_registers = mswin_argument_registers;
+        break;
     case CG_CALL_CONV_COUNT:
-    default:
-    PANIC("Invalid call convention.");
-    break;
+        default:
+        PANIC("Invalid call convention.");
+        break;
     }
 
     // IR fixup for this specific backend.
@@ -1209,7 +1223,7 @@ void codegen_emit_x86_64(CodegenContext *context) {
     }
     free(type_info);
 
-  // Allocate registers to each temporary within the program.
+    // Allocate registers to each temporary within the program.
     RegisterAllocationInfo *info = ra_allocate_info(context, REG_RAX, GENERAL_REGISTER_COUNT, general, argument_register_count, argument_registers);
     ra(info);
 
