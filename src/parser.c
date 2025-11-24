@@ -3,7 +3,6 @@
 #include <error.h>
 #include <environment.h>
 #include <file_io.h>
-#include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -16,15 +15,16 @@ const char *whitespace         = " \t\r\n";
 // TODO: Think harder about delimiters.
 const char *delimiters         = " \t\r\n,{}()[]<>:&@";
 
-bool comment_at_beginning(Token token) {
+/// @return Boolean-like value: 1 for success, 0 for failure.
+int comment_at_beginning(Token token) {
   const char *comment_it = comment_delimiters;
   while (*comment_it) {
     if (*(token.beginning) == *comment_it) {
-      return true;
+      return 1;
     }
     comment_it++;
   }
-  return false;
+  return 0;
 }
 
 // "a +- 4" == "a + -4"
@@ -80,17 +80,17 @@ Error lex_extend(Token *token) {
   return err;
 }
 
-bool token_string_equalp(char* string, Token *token) {
+int token_string_equalp(char* string, Token *token) {
   if (!string || !token) { return 0; }
   char *beg = token->beginning;
   while (*string && token->beginning < token->end) {
     if (*string != *beg) {
-      return false;
+      return 0;
     }
     string++;
     beg++;
   }
-  return true;
+  return 1;
 }
 
 void print_token(Token t) {
@@ -228,7 +228,7 @@ Node *node_none() {
   return none;
 }
 
-Node *node_integer(int64_t value) {
+Node *node_integer(long long value) {
   Node *integer = node_allocate();
   integer->type = NODE_TYPE_INTEGER;
   integer->value.integer = value;
@@ -292,7 +292,7 @@ char *node_text(Node *node) {
     snprintf(node_text_buffer, NODE_TEXT_BUFFER_SIZE, "NONE");
     break;
   case NODE_TYPE_INTEGER:
-    snprintf(node_text_buffer, NODE_TEXT_BUFFER_SIZE, "INT:%"PRId64, node->value.integer);
+    snprintf(node_text_buffer, NODE_TEXT_BUFFER_SIZE, "INT:%lld", node->value.integer);
     break;
   case NODE_TYPE_SYMBOL:
     snprintf(node_text_buffer, NODE_TEXT_BUFFER_SIZE,
@@ -331,7 +331,7 @@ char *node_text(Node *node) {
     snprintf(node_text_buffer, NODE_TEXT_BUFFER_SIZE, "FUNCTION CALL");
     break;
   case NODE_TYPE_INDEX:
-    snprintf(node_text_buffer, NODE_TEXT_BUFFER_SIZE, "INDEX:%"PRId64, node->value.integer);
+    snprintf(node_text_buffer, NODE_TEXT_BUFFER_SIZE, "INDEX:%lld", node->value.integer);
     break;
   case NODE_TYPE_CAST:
     snprintf(node_text_buffer, NODE_TEXT_BUFFER_SIZE, "TYPECAST");
@@ -561,7 +561,7 @@ Error lex_advance(ParsingState *state) {
   Error err = lex(state->current->end, state->current);
   *state->end = state->current->end;
   if (err.type != ERROR_NONE) { return err; }
-  *state->length = (size_t) (state->current->end - state->current->beginning);
+  *state->length = state->current->end - state->current->beginning;
   return err;
 }
 
@@ -608,7 +608,7 @@ Error parse_get_type(ParsingContext *context, Node *id, Node *result) {
   Error err = ok;
 
   // Handle pointers and functions, as they are both memory addresses.
-  // This should ideally return target format-dependant address size.
+  // This should ideally return target format dependant address size.
   if (id->pointer_indirection > 0
       || strcmp(id->value.symbol, "function") == 0
       || strcmp(id->value.symbol, "external function") == 0) {
@@ -664,19 +664,19 @@ Error parse_get_variable(ParsingContext *context, Node *id, Node *result) {
   expected = lex_expect(expected_string, state); \
   if (expected.err.type) { return expected.err; }
 
-bool parse_integer(Token *token, Node *node) {
-  if (!token || !node) { return false; }
+int parse_integer(Token *token, Node *node) {
+  if (!token || !node) { return 0; }
   char *end = NULL;
   if (token->end - token->beginning == 1 && *(token->beginning) == '0') {
     node->type = NODE_TYPE_INTEGER;
     node->value.integer = 0;
   } else if ((node->value.integer = strtoll(token->beginning, &end, 10)) != 0) {
     if (end != token->end) {
-      return false;
+      return 0;
     }
     node->type = NODE_TYPE_INTEGER;
-  } else { return false; }
-  return true;
+  } else { return 0; }
+  return 1;
 }
 
 /// Set FOUND to 1 if an infix operator is found and parsing should continue, otherwise 0.
@@ -1056,15 +1056,17 @@ Error parse_base_type
   return err;
 }
 
-Error parse_type(ParsingContext *context, ParsingState *state, Node *type) {
+Error parse_type(ParsingContext *context, ParsingState *state, Node *type, Node *parameter_names) {
   Error err = ok;
   ExpectReturnValue expected;
-  bool external = 0;
+  char external = 0;
+
+  Node *parameter_names_last = NULL;
 
   // Parse type prefix keywords.
 
   // If state is at EXT, then advance lexer and mark external.
-  if (external = token_string_equalp("ext", state->current), external) {
+  if ((external = token_string_equalp("ext", state->current))) {
     err = lex_advance(state);
     if (err.type) { return err; }
     if (*state->length == 0) {
@@ -1105,7 +1107,6 @@ Error parse_type(ParsingContext *context, ParsingState *state, Node *type) {
       }
 
       // Parse parameter name
-      // TODO: Maybe make names optional in function type signature.
       err = lex_advance(state);
       if (err.type != ERROR_NONE) { return err; }
       if (*state->length == 0) {
@@ -1113,8 +1114,20 @@ Error parse_type(ParsingContext *context, ParsingState *state, Node *type) {
         return err;
       }
 
-      //Node *parameter_name = node_symbol_from_buffer(state->current->beginning,
-      //                                               state->current->end - state->current->beginning);
+      Node *parameter_name = node_symbol_from_buffer(state->current->beginning,
+                                                     state->current->end - state->current->beginning);
+
+      // First time, write to parameter_names (or parameter_names_last)
+      // Then on, write to parameter_names_last->next_child
+
+      if (parameter_names_last) {
+        parameter_names_last->next_child = parameter_name;
+        parameter_names_last = parameter_names_last->next_child;
+      } else {
+        parameter_names_last = parameter_names;
+        node_copy(parameter_name, parameter_names_last);
+        node_free(parameter_name);
+      }
 
       EXPECT(expected, ":", state);
       if (!expected.found) {
@@ -1130,12 +1143,13 @@ Error parse_type(ParsingContext *context, ParsingState *state, Node *type) {
         return err;
       }
       Node *parameter_type = node_allocate();
-      err = parse_type(context, state, parameter_type);
+      err = parse_type(context, state, parameter_type, NULL);
       if (err.type) { return err; }
 
       // With finished parameter, add as child to function, or add to function context?
       node_add_child(type, parameter_type);
     }
+
     return err;
   }
 
@@ -1242,6 +1256,8 @@ Error parse_expr
                        "Expected lambda body following lambda signature");
             return err;
           }
+
+          // TODO: Handle empty function body.
 
           Node *body = node_allocate();
           node_add_child(lambda, body);
@@ -1446,8 +1462,9 @@ Error parse_expr
             err = lex_advance(&state);
             if (err.type != ERROR_NONE) { return err; }
             if (token_length == 0) { break; }
-            Node *decl_type = node_allocate();
-            err = parse_type(context, &state, decl_type);
+            Node *type = node_allocate();
+            Node *param_names = node_allocate();
+            err = parse_type(context, &state, type, param_names);
             if (err.type) { return err; }
 
             Node *variable_binding = node_allocate();
@@ -1470,12 +1487,103 @@ Error parse_expr
             Node *symbol_for_env = node_allocate();
             node_copy(symbol, symbol_for_env);
 
-            int status = environment_set(context->variables, symbol_for_env, decl_type);
+            int status = environment_set(context->variables, symbol_for_env, type);
             if (status != 1) {
               printf("Variable: \"%s\", status: %d\n", symbol_for_env->value.symbol, status);
               ERROR_PREP(err, ERROR_GENERIC, "Failed to define variable!");
               return err;
             }
+
+            if (strcmp(type->value.symbol, "function") == 0) {
+              EXPECT(expected, "{", &state);
+              if (expected.found) {
+
+                Node **local_result = &result;
+                if (stack) { local_result = &stack->result; }
+
+                Node *reassign = node_allocate();
+                reassign->type = NODE_TYPE_VARIABLE_REASSIGNMENT;
+                Node *lambda = node_allocate();
+
+                Node *access = node_allocate();
+                node_copy(symbol, access);
+                access->type = NODE_TYPE_VARIABLE_ACCESS;
+                node_add_child(reassign, access);
+
+                node_add_child(reassign, lambda);
+
+                (*local_result)->next_child = reassign;
+                *local_result = reassign;
+
+                // TODO: Expect empty body and handle that accordingly.
+
+                context = parse_context_create(context);
+
+                lambda->type = NODE_TYPE_FUNCTION;
+
+                // Add return type of function signature type (first
+                // child) as the first child of the lambda
+                // (return type).
+                Node *lambda_return_type = node_allocate();
+                node_copy(type->children, lambda_return_type);
+                node_add_child(lambda, lambda_return_type);
+
+                Node *parameters = node_allocate();
+                node_add_child(lambda, parameters);
+
+                // type->children->next_child refers to the first parameter
+                // for each parameter, we need a new variable
+                // declaration node as a child of `parameters`
+
+                // TODO: parameter_names may be invalid, we should copy
+                // global and use that copy.
+
+                Node *param_name = param_names;
+                Node *param_type = type->children->next_child;
+
+                while (param_type) {
+                  Node *new_param = node_allocate();
+                  new_param->type = NODE_TYPE_VARIABLE_DECLARATION;
+                  Node *new_param_name = node_allocate();
+
+                  node_copy(param_name, new_param_name);
+                  node_add_child(new_param, new_param_name);
+
+                  node_add_child(parameters, new_param);
+
+                  // Context variables environment gains new binding.
+                  Node *param_symbol_for_env = node_allocate();
+                  node_copy(param_name, param_symbol_for_env);
+
+                  int status = environment_set(context->variables, param_symbol_for_env, param_type);
+                  if (status != 1) {
+                    printf("Variable: \"%s\", status: %d\n", param_symbol_for_env->value.symbol, status);
+                    ERROR_PREP(err, ERROR_GENERIC, "Failed to define parameter variable!");
+                    return err;
+                  }
+
+                  param_type = param_type->next_child;
+                  param_name = param_name->next_child;
+                }
+
+                // TODO: Free param_names list
+
+                Node *body = node_allocate();
+                node_add_child(lambda, body);
+                Node *first_expression = node_allocate();
+                node_add_child(body, first_expression);
+
+                // Enter new ParsingStack to handle lambda body.
+                stack = parse_stack_create(stack);
+                stack->operator = node_symbol("lambda-body");
+                stack->body = body;
+                stack->result = first_expression;
+                working_result = first_expression;
+                continue;
+              }
+            }
+
+            // TODO: Free param_names list
 
             // Check for initialization after declaration.
             EXPECT(expected, "=", &state);
@@ -1483,6 +1591,11 @@ Error parse_expr
 
               Node **local_result = &result;
               if (stack) { local_result = &stack->result; }
+
+              // reassign
+              // |-- lhs
+              // `-- value_expression
+              // reassign == lhs = value_expression
 
               Node *reassign = node_allocate();
               reassign->type = NODE_TYPE_VARIABLE_REASSIGNMENT;

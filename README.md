@@ -66,7 +66,7 @@ An Aly program comes in the form of a file. The file may contain a series of exp
 
 Let's take a look at a basic program:
 ```
-fact : integer (n : integer) = integer (n : integer) {
+fact : integer (n : integer b : integer x : integer y : integer z : integer) {
   if n < 2 {
     1
   } else {

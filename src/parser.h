@@ -1,7 +1,6 @@
 #ifndef ALY_COMPILER_PARSER_H
 #define ALY_COMPILER_PARSER_H
 
-#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <error.h>
@@ -138,10 +137,11 @@ void node_free(Node *root);
 /// Copy A into B, asserting allocations.
 void node_copy(Node *a, Node *b);
 
-bool token_string_equalp(char* string, Token *token);
+// @return Boolean-like value; 1 for success, 0 for failure.
+int token_string_equalp(char* string, Token *token);
 
 /// @return Boolean-like value; 1 upon success, 0 for failure.
-bool parse_integer(Token *token, Node *node);
+int parse_integer(Token *token, Node *node);
 
 typedef struct ParsingState {
   Token *current;
@@ -199,7 +199,7 @@ Error define_binary_operator
  int precedence,
  char *return_type, char *lhs_type, char *rhs_type);
 
-Error parse_type (ParsingContext *context, ParsingState *state, Node *type);
+Error parse_type(ParsingContext *context, ParsingState *state, Node *type, Node *parameter_names);
 
 /** Get the value of a type symbol/ID in types environment.
  *  Return an error if type is not a valid symbol/ID found in context.
@@ -219,5 +219,6 @@ Error parse_program(char *filepath, ParsingContext *context, Node *result);
 Error parse_expr(ParsingContext *context,
                  char *source, char **end,
                  Node *result);
+
 
 #endif /* ALY_COMPILER_PARSER_H */

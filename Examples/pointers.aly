@@ -1,22 +1,22 @@
-foo : integer() = integer() {
-    a : integer = 0
-    b : integer = 42
+foo : integer() = integer () {
+  a : integer = 0
+  b : integer = 42
 
-    ptr : @integer
-    ptr := &a
-    @ptr := 69
+  ptr : @integer
+  ptr := &a
+  @ptr := 69
 
-    test_ptr : @integer
-    test_ptr := &b
+  test_ptr : @integer
+  test_ptr := &b
 
-    ptrptr : @@integer
-    ptrptr := &ptr
+  ptrptr : @@integer
+  ptrptr := &ptr
 
-    @ptrptr := test_ptr
+  @ptrptr := test_ptr
 
-    @ptr := 42
+  @ptr := 42
 
-    a
+  a
 }
 
 foo()
@@ -24,8 +24,8 @@ foo()
 ;; Using a pointer to mutate an integer variable that may be created at
 ;; any time!
 bar : integer (ptr : @integer) = integer (ptr : @integer) {
-    @ptr := 69
-    0
+  @ptr := 69
+  0
 }
 
 number : integer = 0

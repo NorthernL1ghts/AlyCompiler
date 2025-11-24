@@ -15,13 +15,13 @@ char *type_node_text(Node *type) {
   static size_t offset = 0;
   char *outstring = type_node_text_buffer + offset;
   for (unsigned i = 0; i < type->pointer_indirection; ++i) {
-    offset += (size_t) snprintf(type_node_text_buffer + offset,
-      TYPE_NODE_TEXT_BUFFER_SIZE - offset,
-      "@");
+    offset += snprintf(type_node_text_buffer + offset,
+                       TYPE_NODE_TEXT_BUFFER_SIZE - offset,
+                       "@");
   }
-  offset += (size_t) snprintf(type_node_text_buffer + offset,
-    TYPE_NODE_TEXT_BUFFER_SIZE - offset,
-    "%s", type->value.symbol);
+  offset += snprintf(type_node_text_buffer + offset,
+                     TYPE_NODE_TEXT_BUFFER_SIZE - offset,
+                     "%s", type->value.symbol);
   offset += 1;
   if (offset >= TYPE_NODE_TEXT_BUFFER_SIZE) {
     offset = 0;
@@ -407,11 +407,6 @@ Error typecheck_expression
       iterator = expression->children->next_child->children;
       Node *expected_parameter = value->children->next_child;
 
-      //printf("Iterator:\n");
-      //print_node(iterator,2);
-      //printf("Expected parameter:\n");
-      //print_node(expected_parameter,2);
-
       while (iterator && expected_parameter) {
         // Get return type of given parameter.
         err = typecheck_expression(context, context_to_enter, iterator, type);
@@ -437,6 +432,7 @@ Error typecheck_expression
           print_node(expected_parameter, 2);
           expected_parameter = expected_parameter->next_child;
         }
+
         ERROR_PREP(err, ERROR_ARGUMENTS, "Not enough arguments passed to function!");
         break;
       }
@@ -501,8 +497,8 @@ Error typecheck_expression
       if (err.type) { return err; }
       err = parse_get_type(context, expression_type_no_pointer, expression_type_info);
       if (err.type) { return err; }
-      cast_type_size = (size_t) cast_type_info->children->value.integer;
-      expression_type_size = (size_t) expression_type_info->children->value.integer;
+      cast_type_size = cast_type_info->children->value.integer;
+      expression_type_size = expression_type_info->children->value.integer;
       free(cast_type_info);
       free(expression_type_info);
 
@@ -549,7 +545,7 @@ Error typecheck_expression
   }
   free(result);
   free(value);
-  free(tmpnode);
+free(tmpnode);
   return err;
 }
 
