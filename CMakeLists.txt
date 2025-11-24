@@ -1,37 +1,34 @@
-cmake_minimum_required(VERSION 3.20)
+cmake_minimum_required(VERSION 3.14)
 
-# Project definition
-project(AlyCompiler C)
-
-# Use 'ccache' if available
+# Use `ccache` if it is installed in system's PATH.
 find_program(CCACHE_PROGRAM ccache)
-if (CCACHE_PROGRAM)
-    set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE "${CCACHE_PROGRAM}")
+if(CCACHE_PROGRAM)
+  set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE "${CCACHE_PROGRAM}")
 endif()
 
-# Export compile_commands.json
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+# Export compilation database in JSON format.
+set(CMAKE_EXPORT_COMPILE_COMMANDS on)
 
-# Source files
-set(SOURCE_FILES
-    src/codegen.c
-    src/error.c
-    src/environment.c
-    src/file_io.c
-    src/main.c
-    src/parser.c
-    src/typechecker.c
-    src/opt.c
-    src/codegen/intermediate_representation.c
-    src/codegen/register_allocation.c
-    src/codegen/x86_64/arch_x86_64.c
+project(AlyCompiler C)
+
+add_executable(
+  alyc
+  src/codegen.c
+  src/error.c
+  src/environment.c
+  src/file_io.c
+  src/main.c
+  src/parser.c
+  src/typechecker.c
+  src/opt.c
+  src/codegen/intermediate_representation.c
+  src/codegen/register_allocation.c
+  src/codegen/x86_64/arch_x86_64.c
 )
-
-# Define executable
-add_executable(alyc ${SOURCE_FILES})
-
-# Include directories
-target_include_directories(alyc PUBLIC src)
+target_include_directories(
+  alyc
+  PUBLIC src/
+)
 
 if (NOT MSVC)
   target_compile_options(
@@ -41,11 +38,19 @@ if (NOT MSVC)
     -Wshadow -Wconversion
     -Werror=return-type -Werror=implicit-function-declaration
     -Werror=implicit-int -Werror=pointer-arith
-    -Wno-unused
-    -O0 -g
+    -Wno-unused-parameter -Wno-unused-function
   )
-  if (DEFINED DEBUG AND NOT WIN32)
-    target_compile_options(func PRIVATE -fsanitize=address)
-    target_link_options(func PRIVATE -fsanitize=address)
+
+  if (CMAKE_BUILD_TYPE STREQUAL "Debug")
+    target_compile_options(alyc PRIVATE -O0 -g)
+  else()
+    target_compile_options(alyc PRIVATE -O3)
   endif()
+
+  if (DEFINED DEBUG AND NOT WIN32)
+    target_compile_options(alyc PRIVATE -fsanitize=address)
+    target_link_options(alyc PRIVATE -fsanitize=address)
+  endif()
+else()
+  target_compile_options(alyc PRIVATE /W4)
 endif()
